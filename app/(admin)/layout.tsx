@@ -7,6 +7,7 @@ const NAV_LINKS = [
   { href: "/admin/clients", label: "Clients" },
   { href: "/admin/products", label: "Products" },
   { href: "/admin/areas", label: "Areas" },
+  { href: "/admin/orders", label: "Orders" },
   { href: "/admin/accounts", label: "Staff Accounts" },
 ];
 

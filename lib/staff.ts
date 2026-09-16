@@ -46,3 +46,14 @@ export async function listActiveSalesmen() {
     .order("full_name");
   return data ?? [];
 }
+
+export async function listActiveRiders() {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .eq("role", "rider")
+    .eq("active", true)
+    .order("full_name");
+  return data ?? [];
+}
