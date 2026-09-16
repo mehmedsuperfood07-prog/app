@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 export default function AdminHome() {
   return (
     <div>
@@ -7,15 +5,9 @@ export default function AdminHome() {
         Dashboard
       </h1>
       <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-        Client, product, and order management land here in the next build
-        steps.
+        Order and invoice reporting land here in a later step. Use the nav
+        above for clients, products, areas, and staff accounts.
       </p>
-      <Link
-        href="/admin/accounts"
-        className="mt-4 inline-block text-sm text-zinc-700 underline dark:text-zinc-300"
-      >
-        Manage staff accounts →
-      </Link>
     </div>
   );
 }

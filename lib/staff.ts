@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile, type Role } from "@/lib/auth";
 
 export type CreateStaffInput = {
@@ -33,4 +34,15 @@ export async function createStaffAccount(input: CreateStaffInput) {
   if (error) throw new Error(error.message);
 
   return data.user;
+}
+
+export async function listActiveSalesmen() {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .eq("role", "salesman")
+    .eq("active", true)
+    .order("full_name");
+  return data ?? [];
 }
