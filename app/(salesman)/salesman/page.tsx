@@ -1,17 +1,48 @@
-import Link from "next/link";
-import { listMyClients, CUSTOMER_TYPE_LABELS } from "@/lib/clients";
-import { listMyAreas } from "@/lib/areas";
+"use client";
 
-export default async function SalesmanHome({
-  searchParams,
-}: {
-  searchParams: Promise<{ search?: string; area?: string; created?: string }>;
-}) {
-  const { search, area, created } = await searchParams;
-  const [clients, areas] = await Promise.all([
-    listMyClients({ search, areaId: area }),
-    listMyAreas(),
-  ]);
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/offline/db";
+import { pullLatestData } from "@/lib/offline/sync";
+import { CUSTOMER_TYPE_LABELS } from "@/lib/constants";
+
+export default function SalesmanHome() {
+  const [search, setSearch] = useState("");
+  const [areaId, setAreaId] = useState("");
+  const [justCreated, setJustCreated] = useState(false);
+
+  useEffect(() => {
+    // Best-effort: if we're offline this just fails silently and the
+    // page renders whatever Dexie already has cached from last time.
+    pullLatestData().catch(() => {});
+
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("created") === "1") {
+        setJustCreated(true);
+        window.history.replaceState(null, "", "/salesman");
+      }
+    }
+  }, []);
+
+  const clients = useLiveQuery(() => db.clients.toArray(), []) ?? [];
+
+  const areas = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of clients) {
+      if (c.area_id && c.area_name) map.set(c.area_id, c.area_name);
+    }
+    return [...map.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [clients]);
+
+  const filtered = clients
+    .filter((c) => c.active)
+    .filter((c) => !areaId || c.area_id === areaId)
+    .filter((c) => !search || c.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <div className="space-y-6">
@@ -24,21 +55,19 @@ export default async function SalesmanHome({
         </p>
       </div>
 
-      {created && (
-        <p className="text-sm text-green-600">Client added.</p>
-      )}
+      {justCreated && <p className="text-sm text-green-600">Client added.</p>}
 
-      <form method="get" className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3">
         <input
           type="text"
-          name="search"
-          defaultValue={search}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name…"
           className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />
         <select
-          name="area"
-          defaultValue={area ?? ""}
+          value={areaId}
+          onChange={(e) => setAreaId(e.target.value)}
           className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         >
           <option value="">All my areas</option>
@@ -48,19 +77,18 @@ export default async function SalesmanHome({
             </option>
           ))}
         </select>
-        <button
-          type="submit"
-          className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
-        >
-          Filter
-        </button>
-      </form>
+      </div>
 
       <div className="max-w-2xl space-y-2">
         {clients.length === 0 && (
+          <p className="text-sm text-zinc-500">
+            No clients cached yet — connect once to load your client list.
+          </p>
+        )}
+        {clients.length > 0 && filtered.length === 0 && (
           <p className="text-sm text-zinc-500">No clients match yet.</p>
         )}
-        {clients.map((c) => (
+        {filtered.map((c) => (
           <Link
             key={c.id}
             href={`/salesman/orders/new?client=${c.id}`}
@@ -76,7 +104,7 @@ export default async function SalesmanHome({
             </div>
             <div className="mt-1 flex flex-wrap gap-3 text-xs text-zinc-500">
               <span>{CUSTOMER_TYPE_LABELS[c.customer_type]}</span>
-              <span>{c.area?.name ?? "No area"}</span>
+              <span>{c.area_name ?? "No area"}</span>
               {c.phone && <span>{c.phone}</span>}
             </div>
           </Link>

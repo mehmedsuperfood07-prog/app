@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 
-export const PRODUCT_UNITS = ["kg", "bag", "bottle"] as const;
-export type ProductUnit = (typeof PRODUCT_UNITS)[number];
+export { PRODUCT_UNITS, type ProductUnit } from "@/lib/constants";
+import type { ProductUnit } from "@/lib/constants";
 
 export type Product = {
   id: string;

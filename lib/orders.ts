@@ -73,7 +73,22 @@ export type OrderLineInput = {
 // Prices are always looked up here from the catalog/override tables at
 // submit time — never taken from the client request — so a salesman can
 // never place an order at a price they typed or tampered with in the form.
-export async function createOrder(clientId: string, items: OrderLineInput[]) {
+// This also holds for orders queued offline (see lib/offline/sync.ts):
+// the price locked into order_items is always whatever the catalog says
+// at the moment the order actually reaches the server, not whatever was
+// cached on the device when the salesman built the order. That can
+// occasionally surprise a salesman if a price changed while they were
+// offline, but it's the same trust boundary as the online path, and
+// correct trumps a cached number nobody can vouch for.
+//
+// createdOfflineAt, when set, records that this order was actually built
+// on the device at that earlier time even though it's only reaching the
+// server now — see orders.created_offline_at / synced_at in the schema.
+export async function createOrder(
+  clientId: string,
+  items: OrderLineInput[],
+  createdOfflineAt?: string,
+) {
   const lineItems = items.filter((i) => i.quantity > 0);
   if (lineItems.length === 0) {
     throw new Error("Add at least one product with a quantity.");
@@ -94,32 +109,26 @@ export async function createOrder(clientId: string, items: OrderLineInput[]) {
     }
   }
 
-  const { data: order, error: orderError } = await supabase
-    .from("orders")
-    .insert({ client_id: clientId, salesman_id: user.id, status: "placed" })
-    .select("id")
-    .single();
-
-  if (orderError || !order) {
-    throw new Error(orderError?.message ?? "Could not create order.");
-  }
-
-  const { error: itemsError } = await supabase.from("order_items").insert(
-    lineItems.map((i) => ({
-      order_id: order.id,
+  // One atomic RPC (order + order_items + order_status_history) rather
+  // than three separate inserts — see the migration that introduced
+  // create_order_with_items for why: a concurrent reader could otherwise
+  // catch the order between steps and see a real order with zero items.
+  const { data: orderId, error: rpcError } = await supabase.rpc("create_order_with_items", {
+    p_client_id: clientId,
+    p_salesman_id: user.id,
+    p_items: lineItems.map((i) => ({
       product_id: i.product_id,
       quantity: i.quantity,
-      unit_price_at_order_time: priceMap.get(i.product_id)!,
+      unit_price: priceMap.get(i.product_id)!,
     })),
-  );
+    p_created_offline_at: createdOfflineAt ?? null,
+  });
 
-  if (itemsError) throw new Error(itemsError.message);
+  if (rpcError || !orderId) {
+    throw new Error(rpcError?.message ?? "Could not create order.");
+  }
 
-  await supabase
-    .from("order_status_history")
-    .insert({ order_id: order.id, status: "placed", changed_by: user.id });
-
-  return order.id as string;
+  return orderId as string;
 }
 
 export type OrderSummary = {

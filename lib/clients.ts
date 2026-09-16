@@ -1,21 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 
-export const CUSTOMER_TYPES = [
-  "general_store",
-  "departmental_store",
-  "bakery",
-  "factory_canteen",
-  "distributor",
-] as const;
-export type CustomerType = (typeof CUSTOMER_TYPES)[number];
-
-export const CUSTOMER_TYPE_LABELS: Record<CustomerType, string> = {
-  general_store: "General Store",
-  departmental_store: "Departmental Store",
-  bakery: "Bakery",
-  factory_canteen: "Factory / Staff Canteen",
-  distributor: "Distributor",
-};
+export { CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS, type CustomerType } from "@/lib/constants";
+import type { CustomerType } from "@/lib/constants";
 
 export type ClientRecord = {
   id: string;

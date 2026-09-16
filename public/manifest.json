@@ -1,0 +1,12 @@
+{
+  "name": "Mehmed Order Manager",
+  "short_name": "Mehmed Orders",
+  "description": "Order management for Mehmed Super Foods",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fafafa",
+  "theme_color": "#18181b",
+  "icons": [
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
