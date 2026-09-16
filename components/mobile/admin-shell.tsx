@@ -3,29 +3,43 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  Users,
-  Package,
-  MapPin,
-  ClipboardList,
-  Receipt,
-  UserCog,
-  X,
-} from "lucide-react";
+import { Package, MapPin, UserCog, X, ChevronRight } from "lucide-react";
 import { ShellHeader } from "@/components/mobile/shell-header";
 import { AdminBottomNav } from "@/components/mobile/admin-bottom-nav";
 import type { Profile } from "@/lib/auth";
 
-const NAV_ITEMS = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/orders", label: "Orders", icon: ClipboardList },
-  { href: "/admin/invoices", label: "Invoices", icon: Receipt },
-  { href: "/admin/clients", label: "Clients", icon: Users },
-  { href: "/admin/products", label: "Products", icon: Package },
-  { href: "/admin/areas", label: "Areas", icon: MapPin },
-  { href: "/admin/accounts", label: "Staff Accounts", icon: UserCog },
+// Only the sections not already covered by the bottom tab bar — showing
+// Dashboard/Orders/Clients/Invoices here too would just duplicate a tap
+// target that's already one thumb-reach away.
+const MORE_ITEMS = [
+  {
+    href: "/admin/products",
+    label: "Products",
+    description: "Catalog and default prices",
+    icon: Package,
+    tone: "blue" as const,
+  },
+  {
+    href: "/admin/areas",
+    label: "Areas",
+    description: "Service areas and salesman coverage",
+    icon: MapPin,
+    tone: "green" as const,
+  },
+  {
+    href: "/admin/accounts",
+    label: "Staff Accounts",
+    description: "Salesmen, riders, and admins",
+    icon: UserCog,
+    tone: "purple" as const,
+  },
 ];
+
+const TONES = {
+  blue: "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400",
+  green: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400",
+  purple: "bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400",
+};
 
 export function AdminShell({
   profile,
@@ -36,10 +50,6 @@ export function AdminShell({
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-
-  const activeHref = [...NAV_ITEMS]
-    .sort((a, b) => b.href.length - a.href.length)
-    .find((item) => pathname === item.href || pathname.startsWith(item.href + "/"))?.href;
 
   return (
     <div className="min-h-screen bg-background">
@@ -56,7 +66,7 @@ export function AdminShell({
             className="absolute inset-x-0 bottom-0 flex max-h-[80vh] flex-col rounded-t-3xl bg-surface shadow-xl"
             style={{ paddingBottom: "calc(var(--safe-bottom) + 5.5rem)" }}
           >
-            <div className="flex items-center justify-between px-5 pt-5 pb-2">
+            <div className="flex items-center justify-between px-5 pt-5 pb-1">
               <span className="font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
                 More
               </span>
@@ -69,23 +79,35 @@ export function AdminShell({
                 <X size={20} />
               </button>
             </div>
-            <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-2">
-              {NAV_ITEMS.map((item) => {
-                const active = item.href === activeHref;
+            <nav className="flex-1 space-y-2.5 overflow-y-auto px-4 pt-3 pb-2">
+              {MORE_ITEMS.map((item) => {
+                const active = pathname === item.href || pathname.startsWith(item.href + "/");
                 const Icon = item.icon;
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
                     onClick={() => setOpen(false)}
-                    className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium ${
+                    className={`flex items-center gap-3 rounded-2xl border p-3.5 transition active:scale-[0.98] ${
                       active
-                        ? "bg-accent/10 text-accent"
-                        : "text-zinc-700 active:bg-zinc-100 dark:text-zinc-300 dark:active:bg-zinc-800"
+                        ? "border-accent/30 bg-accent/5"
+                        : "border-zinc-200/80 bg-surface active:bg-zinc-50 dark:border-zinc-800 dark:active:bg-zinc-900"
                     }`}
                   >
-                    <Icon size={19} strokeWidth={active ? 2.3 : 1.8} />
-                    {item.label}
+                    <div
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${TONES[item.tone]}`}
+                    >
+                      <Icon size={20} strokeWidth={2.2} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                        {item.label}
+                      </p>
+                      <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
+                        {item.description}
+                      </p>
+                    </div>
+                    <ChevronRight size={18} className="shrink-0 text-zinc-400" />
                   </Link>
                 );
               })}
