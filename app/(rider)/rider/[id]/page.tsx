@@ -1,11 +1,15 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Phone, MapPin, AlertCircle } from "lucide-react";
 import {
   getDeliveryDetail,
-  DELIVERY_STATUS_LABELS,
   type DeliveryStatus,
 } from "@/lib/deliveries";
 import { advanceDeliveryAction } from "@/lib/actions/deliveries";
+import { PageHeader } from "@/components/mobile/page-header";
+import { Card } from "@/components/mobile/card";
+import { DeliveryStatusPill } from "@/components/mobile/status-pill";
+import { Button } from "@/components/mobile/button";
+import { BottomActionBar } from "@/components/mobile/bottom-action-bar";
 
 const NEXT_ACTION_LABEL: Record<DeliveryStatus, string | null> = {
   assigned: "Mark picked up",
@@ -29,73 +33,68 @@ export default async function DeliveryDetailPage({
   const nextLabel = NEXT_ACTION_LABEL[delivery.delivery_status];
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <div>
-        <Link
-          href="/rider"
-          className="text-xs text-zinc-500 underline"
-        >
-          Back to my deliveries
-        </Link>
-        <h1 className="mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-          {delivery.client?.name ?? "Unknown client"}
-        </h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          {DELIVERY_STATUS_LABELS[delivery.delivery_status]}
-        </p>
-        {delivery.client?.address && (
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            {delivery.client.address}
-          </p>
-        )}
-        {delivery.client?.phone && (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            {delivery.client.phone}
-          </p>
-        )}
-      </div>
+    <div>
+      <PageHeader
+        title={delivery.client?.name ?? "Unknown client"}
+        backHref="/rider"
+        backLabel="My Deliveries"
+        action={<DeliveryStatusPill status={delivery.delivery_status} />}
+      />
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
-      <table className="w-full text-left text-sm">
-        <thead>
-          <tr className="border-b border-zinc-200 text-zinc-500 dark:border-zinc-800">
-            <th className="py-2">Product</th>
-            <th className="py-2">Qty</th>
-          </tr>
-        </thead>
-        <tbody>
-          {delivery.items.map((item) => (
-            <tr
-              key={item.id}
-              className="border-b border-zinc-100 dark:border-zinc-900"
+      {(delivery.client?.address || delivery.client?.phone) && (
+        <Card className="mb-4 space-y-1.5">
+          {delivery.client?.address && (
+            <p className="flex items-start gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+              <MapPin size={16} className="mt-0.5 shrink-0 text-zinc-400" />
+              {delivery.client.address}
+            </p>
+          )}
+          {delivery.client?.phone && (
+            <a
+              href={`tel:${delivery.client.phone}`}
+              className="flex items-center gap-2 text-sm font-medium text-accent"
             >
-              <td className="py-2 text-zinc-900 dark:text-zinc-50">
+              <Phone size={16} className="shrink-0" />
+              {delivery.client.phone}
+            </a>
+          )}
+        </Card>
+      )}
+
+      {error && (
+        <p className="mb-3 flex items-center gap-1.5 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10">
+          <AlertCircle size={14} /> {error}
+        </p>
+      )}
+
+      <div className="space-y-2.5 pb-20">
+        {delivery.items.map((item) => (
+          <Card key={item.id} className="flex items-center justify-between gap-3">
+            <div className="min-w-0 text-sm">
+              <p className="font-semibold text-zinc-900 dark:text-zinc-50">
                 {item.product?.name ?? "Unknown product"}
                 {item.product?.variant ? ` — ${item.product.variant}` : ""}
-                <span className="text-zinc-500">
-                  {" "}
-                  ({item.product?.pack_size} {item.product?.unit})
-                </span>
-              </td>
-              <td className="py-2 text-zinc-600 dark:text-zinc-400">
-                {item.quantity}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              </p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                {item.product?.pack_size} {item.product?.unit}
+              </p>
+            </div>
+            <span className="shrink-0 text-lg font-bold text-zinc-900 dark:text-zinc-50">
+              × {item.quantity}
+            </span>
+          </Card>
+        ))}
+      </div>
 
       {nextLabel && (
-        <form action={advanceDeliveryAction}>
-          <input type="hidden" name="order_id" value={delivery.id} />
-          <button
-            type="submit"
-            className="rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900"
-          >
-            {nextLabel}
-          </button>
-        </form>
+        <BottomActionBar>
+          <form action={advanceDeliveryAction}>
+            <input type="hidden" name="order_id" value={delivery.id} />
+            <Button type="submit" className="w-full py-3.5">
+              {nextLabel}
+            </Button>
+          </form>
+        </BottomActionBar>
       )}
     </div>
   );

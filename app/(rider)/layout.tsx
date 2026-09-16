@@ -1,5 +1,5 @@
 import { requireRole } from "@/lib/auth";
-import { RoleShell } from "@/components/role-shell";
+import { MobileShell } from "@/components/mobile/mobile-shell";
 
 export default async function RiderLayout({
   children,
@@ -9,8 +9,8 @@ export default async function RiderLayout({
   const profile = await requireRole("rider");
 
   return (
-    <RoleShell title="Mehmed Delivery" profile={profile}>
+    <MobileShell title="Mehmed Delivery" profile={profile}>
       {children}
-    </RoleShell>
+    </MobileShell>
   );
 }

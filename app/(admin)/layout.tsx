@@ -1,16 +1,5 @@
-import Link from "next/link";
 import { requireRole } from "@/lib/auth";
-import { RoleShell } from "@/components/role-shell";
-
-const NAV_LINKS = [
-  { href: "/admin", label: "Dashboard" },
-  { href: "/admin/clients", label: "Clients" },
-  { href: "/admin/products", label: "Products" },
-  { href: "/admin/areas", label: "Areas" },
-  { href: "/admin/orders", label: "Orders" },
-  { href: "/admin/invoices", label: "Invoices" },
-  { href: "/admin/accounts", label: "Staff Accounts" },
-];
+import { AdminShell } from "@/components/mobile/admin-shell";
 
 export default async function AdminLayout({
   children,
@@ -19,20 +8,5 @@ export default async function AdminLayout({
 }) {
   const profile = await requireRole("admin");
 
-  return (
-    <RoleShell title="Mehmed Admin" profile={profile}>
-      <nav className="mb-6 flex flex-wrap gap-4 border-b border-zinc-200 pb-4 text-sm dark:border-zinc-800">
-        {NAV_LINKS.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            className="text-zinc-600 hover:text-zinc-900 hover:underline dark:text-zinc-400 dark:hover:text-zinc-50"
-          >
-            {link.label}
-          </Link>
-        ))}
-      </nav>
-      {children}
-    </RoleShell>
-  );
+  return <AdminShell profile={profile}>{children}</AdminShell>;
 }

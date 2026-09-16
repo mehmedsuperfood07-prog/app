@@ -1,5 +1,10 @@
+import { AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createStaffAccountAction } from "@/lib/actions/staff";
+import { Field, SelectField } from "@/components/form-field";
+import { PageHeader } from "@/components/mobile/page-header";
+import { Card } from "@/components/mobile/card";
+import { StatusPill } from "@/components/mobile/status-pill";
 
 export default async function AccountsPage({
   searchParams,
@@ -14,120 +19,63 @@ export default async function AccountsPage({
     .order("full_name");
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-          Staff Accounts
-        </h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          Create salesman, rider, and admin logins. There is no public
-          sign-up — every account is created here.
+    <div>
+      <PageHeader
+        title="Staff Accounts"
+        subtitle="No public sign-up — every account is created here"
+      />
+
+      {error && (
+        <p className="mb-3 flex items-center gap-1.5 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10">
+          <AlertCircle size={14} /> {error}
         </p>
-      </div>
+      )}
+      {created && (
+        <p className="mb-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
+          Account created.
+        </p>
+      )}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {created && <p className="text-sm text-green-600">Account created.</p>}
-
-      <form
-        action={createStaffAccountAction}
-        className="max-w-md space-y-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
-      >
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Full name
-            </label>
-            <input
-              name="full_name"
-              required
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            />
+      <Card className="mb-5">
+        <form action={createStaffAccountAction} className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Full name" name="full_name" required />
+            <Field label="Phone" name="phone" />
           </div>
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Phone
-            </label>
-            <input
-              name="phone"
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            />
-          </div>
-        </div>
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Email
-          </label>
-          <input
-            name="email"
-            type="email"
-            required
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Temporary password
-          </label>
-          <input
-            name="password"
-            type="text"
-            required
-            minLength={6}
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Role
-          </label>
-          <select
-            name="role"
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-          >
+          <Field label="Email" name="email" type="email" required />
+          <Field label="Temporary password" name="password" required />
+          <SelectField label="Role" name="role" defaultValue="salesman">
             <option value="salesman">Salesman</option>
             <option value="rider">Rider</option>
             <option value="admin">Admin</option>
-          </select>
-        </div>
-        <button
-          type="submit"
-          className="rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900"
-        >
-          Create account
-        </button>
-      </form>
+          </SelectField>
+          <button
+            type="submit"
+            className="w-full rounded-full bg-accent py-3 text-sm font-semibold text-accent-foreground active:bg-accent/90"
+          >
+            Create account
+          </button>
+        </form>
+      </Card>
 
-      <table className="w-full max-w-2xl text-left text-sm">
-        <thead>
-          <tr className="border-b border-zinc-200 text-zinc-500 dark:border-zinc-800">
-            <th className="py-2">Name</th>
-            <th className="py-2">Phone</th>
-            <th className="py-2">Role</th>
-            <th className="py-2">Active</th>
-          </tr>
-        </thead>
-        <tbody>
-          {staff?.map((s) => (
-            <tr
-              key={s.id}
-              className="border-b border-zinc-100 dark:border-zinc-900"
-            >
-              <td className="py-2 text-zinc-900 dark:text-zinc-50">
+      <div className="space-y-2.5">
+        {staff?.map((s) => (
+          <Card key={s.id} className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="truncate font-semibold text-zinc-900 dark:text-zinc-50">
                 {s.full_name}
-              </td>
-              <td className="py-2 text-zinc-600 dark:text-zinc-400">
-                {s.phone ?? "—"}
-              </td>
-              <td className="py-2 text-zinc-600 dark:text-zinc-400">
+              </div>
+              <div className="text-xs capitalize text-zinc-500 dark:text-zinc-400">
                 {s.role}
-              </td>
-              <td className="py-2 text-zinc-600 dark:text-zinc-400">
-                {s.active ? "Yes" : "No"}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                {s.phone && ` · ${s.phone}`}
+              </div>
+            </div>
+            <StatusPill tone={s.active ? "green" : "neutral"}>
+              {s.active ? "Active" : "Inactive"}
+            </StatusPill>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }

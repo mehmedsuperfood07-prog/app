@@ -2,14 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
+import { WifiOff, RefreshCw } from "lucide-react";
 import { db } from "@/lib/offline/db";
 import { setupAutoSync, syncPendingOrders } from "@/lib/offline/sync";
 
 export function SyncStatusIndicator() {
-  const [online, setOnline] = useState(true);
+  const [online, setOnline] = useState(() =>
+    typeof navigator !== "undefined" ? navigator.onLine : true,
+  );
 
   useEffect(() => {
-    setOnline(navigator.onLine);
     const onOnline = () => setOnline(true);
     const onOffline = () => setOnline(false);
     window.addEventListener("online", onOnline);
@@ -25,23 +27,22 @@ export function SyncStatusIndicator() {
   const pending = useLiveQuery(() => db.pendingOrders.toArray(), []) ?? [];
   const failedCount = pending.filter((o) => o.status === "failed").length;
 
+  if (online && pending.length === 0) return null;
+
   return (
-    <div className="flex items-center gap-2 text-xs">
-      <span
-        className={`h-2 w-2 rounded-full ${online ? "bg-green-500" : "bg-zinc-400"}`}
-        title={online ? "Online" : "Offline"}
-      />
-      <span className="text-zinc-500">{online ? "Online" : "Offline"}</span>
-      {pending.length > 0 && (
-        <button
-          type="button"
-          onClick={() => void syncPendingOrders()}
-          className="text-zinc-600 underline dark:text-zinc-400"
-        >
-          {pending.length} order{pending.length === 1 ? "" : "s"} pending
-          {failedCount > 0 ? ` (${failedCount} failed)` : ""} — Sync now
-        </button>
-      )}
-    </div>
+    <button
+      type="button"
+      onClick={() => void syncPendingOrders()}
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${
+        failedCount > 0
+          ? "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400"
+          : "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400"
+      }`}
+    >
+      {!online ? <WifiOff size={13} /> : <RefreshCw size={13} />}
+      {!online && pending.length === 0
+        ? "Offline"
+        : `${pending.length} pending${failedCount ? `, ${failedCount} failed` : ""}`}
+    </button>
   );
 }

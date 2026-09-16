@@ -2,31 +2,37 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/offline/db";
+import { Search, Plus, MapPin, Phone } from "lucide-react";
+import { db, type CachedClient } from "@/lib/offline/db";
 import { pullLatestData } from "@/lib/offline/sync";
 import { CUSTOMER_TYPE_LABELS } from "@/lib/constants";
+import { PageHeader } from "@/components/mobile/page-header";
+import { CardLink } from "@/components/mobile/card";
+
+const EMPTY_CLIENTS: CachedClient[] = [];
 
 export default function SalesmanHome() {
   const [search, setSearch] = useState("");
   const [areaId, setAreaId] = useState("");
-  const [justCreated, setJustCreated] = useState(false);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // Captured once at mount so the banner survives the URL cleanup below
+  // instead of disappearing the instant the query param is replaced away.
+  const [justCreated] = useState(() => searchParams.get("created") === "1");
 
   useEffect(() => {
     // Best-effort: if we're offline this just fails silently and the
     // page renders whatever Dexie already has cached from last time.
     pullLatestData().catch(() => {});
-
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("created") === "1") {
-        setJustCreated(true);
-        window.history.replaceState(null, "", "/salesman");
-      }
-    }
   }, []);
 
-  const clients = useLiveQuery(() => db.clients.toArray(), []) ?? [];
+  useEffect(() => {
+    if (justCreated) router.replace("/salesman");
+  }, [justCreated, router]);
+
+  const clients = useLiveQuery(() => db.clients.toArray(), []) ?? EMPTY_CLIENTS;
 
   const areas = useMemo(() => {
     const map = new Map<string, string>();
@@ -45,71 +51,127 @@ export default function SalesmanHome() {
     .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-          My Clients
-        </h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          Pick a client to start a new order.
+    <div>
+      <PageHeader
+        title="My Clients"
+        subtitle="Pick a client to start a new order"
+        action={
+          <Link
+            href="/salesman/clients/new"
+            aria-label="Add client"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-accent-foreground active:bg-accent/90"
+          >
+            <Plus size={20} strokeWidth={2.5} />
+          </Link>
+        }
+      />
+
+      {justCreated && (
+        <p className="mb-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
+          Client added.
         </p>
+      )}
+
+      <div className="mb-4 space-y-2.5">
+        <div className="relative">
+          <Search
+            size={17}
+            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400"
+          />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search clients…"
+            className="w-full rounded-xl border border-zinc-200 bg-surface py-2.5 pl-10 pr-3 text-sm shadow-sm dark:border-zinc-800"
+          />
+        </div>
+        {areas.length > 0 && (
+          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+            <Chip active={areaId === ""} onClick={() => setAreaId("")}>
+              All areas
+            </Chip>
+            {areas.map((a) => (
+              <Chip key={a.id} active={areaId === a.id} onClick={() => setAreaId(a.id)}>
+                {a.name}
+              </Chip>
+            ))}
+          </div>
+        )}
       </div>
 
-      {justCreated && <p className="text-sm text-green-600">Client added.</p>}
-
-      <div className="flex flex-wrap gap-3">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name…"
-          className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-        />
-        <select
-          value={areaId}
-          onChange={(e) => setAreaId(e.target.value)}
-          className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-        >
-          <option value="">All my areas</option>
-          {areas.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="max-w-2xl space-y-2">
+      <div className="space-y-2.5">
         {clients.length === 0 && (
-          <p className="text-sm text-zinc-500">
+          <p className="py-8 text-center text-sm text-zinc-500">
             No clients cached yet — connect once to load your client list.
           </p>
         )}
         {clients.length > 0 && filtered.length === 0 && (
-          <p className="text-sm text-zinc-500">No clients match yet.</p>
+          <p className="py-8 text-center text-sm text-zinc-500">
+            No clients match yet.
+          </p>
         )}
         {filtered.map((c) => (
-          <Link
-            key={c.id}
-            href={`/salesman/orders/new?client=${c.id}`}
-            className="block rounded-lg border border-zinc-200 p-4 text-sm hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="font-medium text-zinc-900 dark:text-zinc-50">
-                {c.name}
-              </span>
-              <span className="text-xs text-zinc-500">
-                Balance Rs {c.current_balance}
+          <CardLink key={c.id} href={`/salesman/orders/new?client=${c.id}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-sm font-bold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                  {c.name.trim().charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-zinc-900 dark:text-zinc-50">
+                    {c.name}
+                  </p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {CUSTOMER_TYPE_LABELS[c.customer_type]}
+                  </p>
+                </div>
+              </div>
+              <span className="shrink-0 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                Rs {c.current_balance}
               </span>
             </div>
-            <div className="mt-1 flex flex-wrap gap-3 text-xs text-zinc-500">
-              <span>{CUSTOMER_TYPE_LABELS[c.customer_type]}</span>
-              <span>{c.area_name ?? "No area"}</span>
-              {c.phone && <span>{c.phone}</span>}
-            </div>
-          </Link>
+            {(c.area_name || c.phone) && (
+              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-zinc-100 pt-2.5 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+                {c.area_name && (
+                  <span className="flex items-center gap-1">
+                    <MapPin size={12} /> {c.area_name}
+                  </span>
+                )}
+                {c.phone && (
+                  <span className="flex items-center gap-1">
+                    <Phone size={12} /> {c.phone}
+                  </span>
+                )}
+              </div>
+            )}
+          </CardLink>
         ))}
       </div>
     </div>
+  );
+}
+
+function Chip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium whitespace-nowrap ${
+        active
+          ? "bg-accent text-accent-foreground"
+          : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
