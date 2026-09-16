@@ -15,6 +15,16 @@ export async function login(formData: FormData) {
   });
 
   if (error || !data.user) {
+    // TEMPORARY: server-side only (Vercel Runtime Logs), never shown to
+    // the visitor — diagnosing a deployment issue. Remove once resolved.
+    console.error("[login debug] signInWithPassword failed:", {
+      email,
+      status: error?.status,
+      code: error?.code,
+      message: error?.message,
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      hasAnonKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+    });
     redirect("/login?error=invalid");
   }
 
