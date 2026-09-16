@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { sendPushToRole } from "@/lib/push";
 
 export type OrderProduct = {
   id: string;
@@ -127,6 +128,20 @@ export async function createOrder(
   if (rpcError || !orderId) {
     throw new Error(rpcError?.message ?? "Could not create order.");
   }
+
+  const total = lineItems.reduce(
+    (sum, i) => sum + i.quantity * priceMap.get(i.product_id)!,
+    0,
+  );
+  const client = await getClientForOrder(clientId);
+  // Awaited, not fire-and-forget: on serverless, an un-awaited promise
+  // can get cut off once the response is sent, so this has to finish
+  // before createOrder returns. sendPushToRole never throws on its own.
+  await sendPushToRole("admin", {
+    title: "New order placed",
+    body: `${client?.name ?? "A client"} · Rs ${total}`,
+    url: `/admin/orders`,
+  });
 
   return orderId as string;
 }

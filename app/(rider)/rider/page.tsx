@@ -3,6 +3,7 @@ import { listMyDeliveries } from "@/lib/deliveries";
 import { PageHeader } from "@/components/mobile/page-header";
 import { CardLink } from "@/components/mobile/card";
 import { DeliveryStatusPill } from "@/components/mobile/status-pill";
+import { PushNotificationSetup } from "@/components/push-notification-setup";
 
 export default async function RiderHome() {
   const deliveries = await listMyDeliveries();
@@ -13,6 +14,7 @@ export default async function RiderHome() {
         title="My Deliveries"
         subtitle="Orders assigned to you, not yet delivered"
       />
+      <PushNotificationSetup />
 
       <div className="space-y-2.5">
         {deliveries.length === 0 && (

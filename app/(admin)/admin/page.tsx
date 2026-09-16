@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/mobile/page-header";
 import { StatTile } from "@/components/mobile/stat-tile";
 import { Card } from "@/components/mobile/card";
 import { OrderStatusPill } from "@/components/mobile/status-pill";
+import { PushNotificationSetup } from "@/components/push-notification-setup";
 
 export default async function AdminHome() {
   const stats = await getDashboardStats();
@@ -12,6 +13,7 @@ export default async function AdminHome() {
   return (
     <div>
       <PageHeader title="Dashboard" subtitle="Today at a glance" />
+      <PushNotificationSetup />
 
       <div className="grid grid-cols-2 gap-3">
         <StatTile

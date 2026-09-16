@@ -39,3 +39,44 @@ self.addEventListener("fetch", (event) => {
       .catch(() => caches.match(request).then((cached) => cached ?? Response.error())),
   );
 });
+
+// Web Push: shows a system notification even when no tab is open. The
+// actual sound/vibration is the device's own default notification
+// behavior (Android plays it automatically for any Notification shown
+// this way) — the Notification API itself has no reliable cross-browser
+// way to specify a custom audio file, so this is the "ring tone" in
+// practice rather than a custom sound.
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
+  let payload;
+  try {
+    payload = event.data.json();
+  } catch {
+    payload = { title: "Mehmed Order Manager", body: event.data.text() };
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title ?? "Mehmed Order Manager", {
+      body: payload.body,
+      icon: "/icons/icon.svg",
+      badge: "/icons/icon.svg",
+      tag: payload.tag,
+      data: { url: payload.url ?? "/" },
+      vibrate: [200, 100, 200],
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url ?? "/";
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes(url) && "focus" in client) return client.focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(url);
+    }),
+  );
+});

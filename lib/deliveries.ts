@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { createInvoiceForOrder } from "@/lib/invoices";
+import { sendPushToUser, sendPushToRole } from "@/lib/push";
 
 export const DELIVERY_STATUSES = [
   "assigned",
@@ -153,7 +154,7 @@ export async function advanceDelivery(orderId: string) {
 
   const { data: order } = await supabase
     .from("orders")
-    .select("id, rider_id, deliveries(id, status)")
+    .select("id, rider_id, client_id, deliveries(id, status)")
     .eq("id", orderId)
     .single();
 
@@ -188,6 +189,20 @@ export async function advanceDelivery(orderId: string) {
       .insert({ order_id: orderId, status: "delivered", changed_by: user.id });
 
     await createInvoiceForOrder(orderId);
+
+    // Uses clients_rider_view, not the clients table — the rider making
+    // this call has no RLS access to clients directly (same reasoning
+    // as everywhere else in this file).
+    const { data: client } = await supabase
+      .from("clients_rider_view")
+      .select("name")
+      .eq("id", order.client_id)
+      .single();
+    await sendPushToRole("admin", {
+      title: "Delivery completed",
+      body: `${client?.name ?? "An order"} was delivered — invoice generated`,
+      url: "/admin/invoices",
+    });
   }
 }
 
@@ -265,4 +280,20 @@ export async function assignRiderToOrder(orderId: string, riderId: string) {
   await supabase
     .from("order_status_history")
     .insert({ order_id: orderId, status: "out_for_delivery", changed_by: caller.id });
+
+  const { data: order } = await supabase
+    .from("orders")
+    .select("client_id")
+    .eq("id", orderId)
+    .single();
+  const { data: client } = order
+    ? await supabase.from("clients").select("name, address").eq("id", order.client_id).single()
+    : { data: null };
+  await sendPushToUser(riderId, {
+    title: "New delivery assigned",
+    body: client
+      ? `${client.name}${client.address ? ` · ${client.address}` : ""}`
+      : "A new order is waiting for pickup",
+    url: `/rider/${orderId}`,
+  });
 }
