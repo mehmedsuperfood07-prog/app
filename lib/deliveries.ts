@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
+import { createInvoiceForOrder } from "@/lib/invoices";
 
 export const DELIVERY_STATUSES = [
   "assigned",
@@ -185,6 +186,8 @@ export async function advanceDelivery(orderId: string) {
     await supabase
       .from("order_status_history")
       .insert({ order_id: orderId, status: "delivered", changed_by: user.id });
+
+    await createInvoiceForOrder(orderId);
   }
 }
 
