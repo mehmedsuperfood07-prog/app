@@ -19,28 +19,28 @@ export default async function AdminHome() {
         <StatTile
           href="/admin/orders"
           icon={ClipboardList}
-          tone="blue"
+          tone="medium"
           label="Orders today"
           value={String(stats.ordersToday)}
         />
         <StatTile
           href="/admin/orders"
           icon={Truck}
-          tone="amber"
+          tone="soft"
           label="Needs a rider"
           value={String(stats.needsRider)}
         />
         <StatTile
           href="/admin/orders"
           icon={Truck}
-          tone="purple"
+          tone="medium"
           label="Out for delivery"
           value={String(stats.outForDelivery)}
         />
         <StatTile
           href="/admin/clients"
           icon={Wallet}
-          tone="rose"
+          tone="strong"
           label="Outstanding balance"
           value={`Rs ${stats.outstandingBalance.toLocaleString()}`}
         />
@@ -51,7 +51,7 @@ export default async function AdminHome() {
         className="mt-3 flex items-center justify-between rounded-2xl border border-zinc-200/80 bg-surface p-4 shadow-sm active:scale-[0.98] dark:border-zinc-800"
       >
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent-soft-foreground">
             <Receipt size={18} strokeWidth={2.2} />
           </div>
           <div>

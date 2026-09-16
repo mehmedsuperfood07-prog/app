@@ -24,7 +24,7 @@ export default async function NewClientPage({
       />
 
       {error && (
-        <p className="mb-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10">
+        <p className="mb-3 rounded-xl bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900">
           {error}
         </p>
       )}

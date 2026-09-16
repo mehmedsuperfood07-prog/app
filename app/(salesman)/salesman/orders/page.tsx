@@ -49,12 +49,15 @@ export default function OrdersPage() {
         )}
 
         {pendingRows.map((o) => (
-          <Card key={o.id} className="border-amber-200 dark:border-amber-900">
+          <Card
+            key={o.id}
+            className={o.status === "failed" ? "border-zinc-400 dark:border-zinc-600" : "border-accent-soft"}
+          >
             <div className="flex items-start justify-between gap-2">
               <span className="font-semibold text-zinc-900 dark:text-zinc-50">
                 {o.clientName}
               </span>
-              <StatusPill tone={o.status === "failed" ? "red" : "amber"}>
+              <StatusPill tone={o.status === "failed" ? "neutral" : "soft"}>
                 {o.status === "failed"
                   ? "Sync failed"
                   : o.status === "syncing"
@@ -74,7 +77,7 @@ export default function OrdersPage() {
               ))}
             </ul>
             {o.error && (
-              <p className="mt-2 flex items-center gap-1.5 text-xs text-red-600">
+              <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300">
                 <AlertCircle size={13} /> {o.error}
               </p>
             )}

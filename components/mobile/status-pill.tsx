@@ -1,9 +1,13 @@
+// Every tone here is either neutral gray or a shade of the brand's one
+// green (see app/globals.css) — no other hue anywhere in the app.
+// "soft"/"medium"/"strong" reads as a progression (further along a
+// workflow = more saturated green), which doubles as the status
+// semantics we'd otherwise have used separate colors for.
 const TONES = {
   neutral: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
-  amber: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
-  blue: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-400",
-  green: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400",
-  red: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400",
+  soft: "bg-accent-soft text-accent-soft-foreground",
+  medium: "bg-accent/10 text-accent dark:bg-accent/15",
+  strong: "bg-accent text-accent-foreground",
 } as const;
 
 export type PillTone = keyof typeof TONES;
@@ -26,11 +30,11 @@ export function StatusPill({
 
 const ORDER_STATUS_TONE: Record<string, PillTone> = {
   draft: "neutral",
-  pending_sync: "amber",
-  placed: "blue",
-  out_for_delivery: "amber",
-  delivered: "green",
-  cancelled: "red",
+  pending_sync: "neutral",
+  placed: "soft",
+  out_for_delivery: "medium",
+  delivered: "strong",
+  cancelled: "neutral",
 };
 
 const ORDER_STATUS_LABEL: Record<string, string> = {
@@ -52,9 +56,9 @@ export function OrderStatusPill({ status }: { status: string }) {
 
 const DELIVERY_STATUS_TONE: Record<string, PillTone> = {
   assigned: "neutral",
-  picked_up: "amber",
-  on_the_way: "blue",
-  delivered: "green",
+  picked_up: "soft",
+  on_the_way: "medium",
+  delivered: "strong",
 };
 
 const DELIVERY_STATUS_LABEL: Record<string, string> = {

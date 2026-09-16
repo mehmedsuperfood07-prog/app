@@ -35,8 +35,8 @@ export function SyncStatusIndicator() {
       onClick={() => void syncPendingOrders()}
       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${
         failedCount > 0
-          ? "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400"
-          : "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400"
+          ? "bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900"
+          : "bg-accent-soft text-accent-soft-foreground"
       }`}
     >
       {!online ? <WifiOff size={13} /> : <RefreshCw size={13} />}

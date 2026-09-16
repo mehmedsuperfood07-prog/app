@@ -27,7 +27,7 @@ export default async function AreasPage({
       <PageHeader title="Areas" subtitle="Service areas and coverage" />
 
       {error && (
-        <p className="mb-3 flex items-center gap-1.5 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10">
+        <p className="mb-3 flex items-center gap-1.5 rounded-xl bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900">
           <AlertCircle size={14} /> {error}
         </p>
       )}
@@ -55,7 +55,7 @@ export default async function AreasPage({
               </span>
               <form action={deleteAreaAction}>
                 <input type="hidden" name="id" value={area.id} />
-                <button type="submit" className="text-xs font-medium text-red-600">
+                <button type="submit" className="text-xs font-semibold text-zinc-500 underline dark:text-zinc-400">
                   Delete
                 </button>
               </form>

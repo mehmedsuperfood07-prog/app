@@ -26,12 +26,12 @@ export default async function AccountsPage({
       />
 
       {error && (
-        <p className="mb-3 flex items-center gap-1.5 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10">
+        <p className="mb-3 flex items-center gap-1.5 rounded-xl bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900">
           <AlertCircle size={14} /> {error}
         </p>
       )}
       {created && (
-        <p className="mb-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
+        <p className="mb-3 rounded-xl bg-accent-soft px-3 py-2 text-sm text-accent-soft-foreground">
           Account created.
         </p>
       )}
@@ -70,7 +70,7 @@ export default async function AccountsPage({
                 {s.phone && ` · ${s.phone}`}
               </div>
             </div>
-            <StatusPill tone={s.active ? "green" : "neutral"}>
+            <StatusPill tone={s.active ? "strong" : "neutral"}>
               {s.active ? "Active" : "Inactive"}
             </StatusPill>
           </Card>

@@ -25,12 +25,12 @@ export default async function LoginPage({
 
         <form action={login} className="space-y-4">
           {error === "invalid" && (
-            <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10">
+            <p className="rounded-xl bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900">
               Incorrect email or password.
             </p>
           )}
           {error === "inactive" && (
-            <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10">
+            <p className="rounded-xl bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900">
               This account has been deactivated.
             </p>
           )}

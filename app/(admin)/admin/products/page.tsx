@@ -23,7 +23,7 @@ export default async function ProductsPage({
       <PageHeader title="Products" subtitle="The default price list" />
 
       {error && (
-        <p className="mb-3 flex items-center gap-1.5 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10">
+        <p className="mb-3 flex items-center gap-1.5 rounded-xl bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900">
           <AlertCircle size={14} /> {error}
         </p>
       )}

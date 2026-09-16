@@ -1,10 +1,16 @@
 import "server-only";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 
+// Brand green (#1b7a3e) and its light tint (#d7f0a2), matching
+// mehmed.vercel.app exactly — the only colors used in this document.
+const BRAND_GREEN = "#1b7a3e";
+const BRAND_GREEN_SOFT = "#d7f0a2";
+const BRAND_GREEN_DEEP = "#1b3a12";
+
 const styles = StyleSheet.create({
   page: { padding: 32, fontSize: 10, fontFamily: "Helvetica" },
   header: { flexDirection: "row", justifyContent: "space-between", marginBottom: 24 },
-  businessName: { fontSize: 16, fontWeight: 700 },
+  businessName: { fontSize: 16, fontWeight: 700, color: BRAND_GREEN },
   invoiceMeta: { textAlign: "right" },
   section: { marginBottom: 16 },
   label: { color: "#71717a", fontSize: 9 },
@@ -12,7 +18,7 @@ const styles = StyleSheet.create({
   tableHeaderRow: {
     flexDirection: "row",
     borderBottomWidth: 1,
-    borderBottomColor: "#000",
+    borderBottomColor: BRAND_GREEN,
     paddingBottom: 4,
     marginBottom: 4,
   },
@@ -29,13 +35,14 @@ const styles = StyleSheet.create({
   totalRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
+    alignItems: "center",
     marginTop: 12,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: "#000",
+    padding: 10,
+    backgroundColor: BRAND_GREEN_SOFT,
+    borderRadius: 4,
   },
-  totalLabel: { fontSize: 11, fontWeight: 700, marginRight: 12 },
-  totalValue: { fontSize: 11, fontWeight: 700 },
+  totalLabel: { fontSize: 11, fontWeight: 700, marginRight: 12, color: BRAND_GREEN_DEEP },
+  totalValue: { fontSize: 13, fontWeight: 700, color: BRAND_GREEN_DEEP },
 });
 
 export type InvoiceDocumentProps = {

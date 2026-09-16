@@ -4,8 +4,8 @@
   "description": "Order management for Mehmed Super Foods",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#fafafa",
-  "theme_color": "#18181b",
+  "background_color": "#f4f4f5",
+  "theme_color": "#1b7a3e",
   "icons": [
     { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ]

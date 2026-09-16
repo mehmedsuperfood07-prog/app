@@ -1,12 +1,14 @@
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 
+// Neutral gray or a shade of the brand's one green — see app/globals.css
+// and components/mobile/status-pill.tsx for the same "soft/medium/
+// strong" system used everywhere else color needs to carry meaning.
 const TONES = {
-  blue: "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400",
-  amber: "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400",
-  purple: "bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400",
-  rose: "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400",
-  green: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400",
+  neutral: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
+  soft: "bg-accent-soft text-accent-soft-foreground",
+  medium: "bg-accent/10 text-accent dark:bg-accent/15",
+  strong: "bg-accent text-accent-foreground",
 } as const;
 
 export function StatTile({

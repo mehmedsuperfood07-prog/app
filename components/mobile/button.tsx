@@ -8,7 +8,7 @@ const VARIANTS: Record<Variant, string> = {
     "bg-zinc-100 text-zinc-900 active:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-50 dark:active:bg-zinc-700",
   ghost:
     "bg-transparent text-zinc-700 border border-zinc-300 active:bg-zinc-100 dark:text-zinc-300 dark:border-zinc-700 dark:active:bg-zinc-900",
-  danger: "bg-red-600 text-white active:bg-red-700",
+  danger: "bg-zinc-900 text-white active:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900",
 };
 
 export function Button({

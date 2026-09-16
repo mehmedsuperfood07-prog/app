@@ -71,7 +71,7 @@ export function ShellHeader({
             <form action={logout}>
               <button
                 type="submit"
-                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-red-600 active:bg-zinc-50 dark:active:bg-zinc-800"
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-medium text-zinc-700 active:bg-zinc-50 dark:text-zinc-300 dark:active:bg-zinc-800"
               >
                 <LogOut size={16} />
                 Sign out

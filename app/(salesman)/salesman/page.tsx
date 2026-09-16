@@ -67,7 +67,7 @@ export default function SalesmanHome() {
       />
 
       {justCreated && (
-        <p className="mb-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
+        <p className="mb-3 rounded-xl bg-accent-soft px-3 py-2 text-sm text-accent-soft-foreground">
           Client added.
         </p>
       )}

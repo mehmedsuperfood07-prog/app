@@ -17,28 +17,30 @@ const MORE_ITEMS = [
     label: "Products",
     description: "Catalog and default prices",
     icon: Package,
-    tone: "blue" as const,
+    tone: "medium" as const,
   },
   {
     href: "/admin/areas",
     label: "Areas",
     description: "Service areas and salesman coverage",
     icon: MapPin,
-    tone: "green" as const,
+    tone: "soft" as const,
   },
   {
     href: "/admin/accounts",
     label: "Staff Accounts",
     description: "Salesmen, riders, and admins",
     icon: UserCog,
-    tone: "purple" as const,
+    tone: "strong" as const,
   },
 ];
 
+// Same neutral/soft/medium/strong green-family system as everywhere
+// else — see app/globals.css and components/mobile/status-pill.tsx.
 const TONES = {
-  blue: "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400",
-  green: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400",
-  purple: "bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400",
+  soft: "bg-accent-soft text-accent-soft-foreground",
+  medium: "bg-accent/10 text-accent dark:bg-accent/15",
+  strong: "bg-accent text-accent-foreground",
 };
 
 export function AdminShell({
