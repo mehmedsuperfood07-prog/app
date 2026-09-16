@@ -41,6 +41,26 @@ export async function listAreasWithSalesmen(): Promise<AreaWithSalesmen[]> {
   }));
 }
 
+// Areas a salesman personally covers — used to build their area filter.
+export async function listMyAreas(): Promise<Area[]> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data } = await supabase
+    .from("salesman_areas")
+    .select("area:areas(id, name)")
+    .eq("salesman_id", user.id);
+
+  type Row = { area: Area | null };
+  return ((data ?? []) as unknown as Row[])
+    .map((r) => r.area)
+    .filter((a): a is Area => Boolean(a))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export async function createArea(name: string) {
   if (!name) throw new Error("Area name is required.");
 

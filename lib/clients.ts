@@ -73,3 +73,50 @@ export async function setClientActive(id: string, active: boolean) {
     .eq("id", id);
   if (error) throw new Error(error.message);
 }
+
+// Salesman-facing: RLS already scopes "clients" select/insert to the
+// caller's own assigned clients, so these just add search/area narrowing
+// on top of that instead of re-implementing ownership checks.
+export async function listMyClients(filters: {
+  search?: string;
+  areaId?: string;
+}): Promise<ClientRecord[]> {
+  const supabase = await createClient();
+  let query = supabase
+    .from("clients")
+    .select(
+      "id, name, customer_type, address, phone, credit_limit, current_balance, active, area:areas(id, name), salesman:profiles(id, full_name)",
+    )
+    .eq("active", true)
+    .order("name");
+
+  if (filters.search) query = query.ilike("name", `%${filters.search}%`);
+  if (filters.areaId) query = query.eq("area_id", filters.areaId);
+
+  const { data } = await query;
+  return (data ?? []) as unknown as ClientRecord[];
+}
+
+export type NewClientInput = {
+  name: string;
+  customer_type: CustomerType;
+  address?: string | null;
+  area_id?: string | null;
+  phone?: string | null;
+  credit_limit: number;
+};
+
+export async function createMyClient(input: NewClientInput) {
+  if (!input.name) throw new Error("Client name is required.");
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not signed in.");
+
+  const { error } = await supabase
+    .from("clients")
+    .insert({ ...input, assigned_salesman_id: user.id });
+  if (error) throw new Error(error.message);
+}

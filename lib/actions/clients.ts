@@ -6,7 +6,9 @@ import {
   createClientRecord,
   updateClientRecord,
   setClientActive,
+  createMyClient,
   type ClientInput,
+  type NewClientInput,
 } from "@/lib/clients";
 
 function parseClientInput(formData: FormData): ClientInput {
@@ -56,4 +58,29 @@ export async function toggleClientActiveAction(formData: FormData) {
   await setClientActive(id, active);
 
   revalidatePath("/admin/clients");
+}
+
+function parseNewClientInput(formData: FormData): NewClientInput {
+  return {
+    name: String(formData.get("name") ?? "").trim(),
+    customer_type: String(
+      formData.get("customer_type") ?? "general_store",
+    ) as NewClientInput["customer_type"],
+    address: String(formData.get("address") ?? "").trim() || null,
+    area_id: String(formData.get("area_id") ?? "") || null,
+    phone: String(formData.get("phone") ?? "").trim() || null,
+    credit_limit: Number(formData.get("credit_limit") ?? 0),
+  };
+}
+
+export async function createMyClientAction(formData: FormData) {
+  try {
+    await createMyClient(parseNewClientInput(formData));
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Could not create client.";
+    redirect(`/salesman/clients/new?error=${encodeURIComponent(message)}`);
+  }
+
+  redirect("/salesman?created=1");
 }
