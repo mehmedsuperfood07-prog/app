@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth";
 
 export { CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS, type CustomerType } from "@/lib/constants";
 import type { CustomerType } from "@/lib/constants";
@@ -37,8 +38,22 @@ export async function listClients(): Promise<ClientRecord[]> {
   return (data ?? []) as unknown as ClientRecord[];
 }
 
+// These three are the admin-only client-management operations (full edit
+// access to any client, including credit_limit/active/reassignment) — as
+// opposed to createMyClient below, which a salesman uses to add their own
+// new client. Server Actions are independently addressable POST endpoints,
+// not gated by which page links to them, so the role check has to happen
+// here rather than relying on "only the admin page renders this form."
+async function requireAdminCaller() {
+  const caller = await getCurrentProfile();
+  if (!caller || caller.role !== "admin") {
+    throw new Error("Only an admin can manage client accounts.");
+  }
+}
+
 export async function createClientRecord(input: ClientInput) {
   if (!input.name) throw new Error("Client name is required.");
+  await requireAdminCaller();
 
   const supabase = await createClient();
   const { error } = await supabase.from("clients").insert(input);
@@ -46,12 +61,16 @@ export async function createClientRecord(input: ClientInput) {
 }
 
 export async function updateClientRecord(id: string, input: ClientInput) {
+  await requireAdminCaller();
+
   const supabase = await createClient();
   const { error } = await supabase.from("clients").update(input).eq("id", id);
   if (error) throw new Error(error.message);
 }
 
 export async function setClientActive(id: string, active: boolean) {
+  await requireAdminCaller();
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("clients")

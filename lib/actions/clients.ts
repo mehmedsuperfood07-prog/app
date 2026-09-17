@@ -55,7 +55,13 @@ export async function toggleClientActiveAction(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const active = formData.get("active") === "true";
 
-  await setClientActive(id, active);
+  try {
+    await setClientActive(id, active);
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Could not update client.";
+    redirect(`/admin/clients?error=${encodeURIComponent(message)}`);
+  }
 
   revalidatePath("/admin/clients");
 }
