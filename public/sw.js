@@ -56,14 +56,26 @@ self.addEventListener("push", (event) => {
   }
 
   event.waitUntil(
-    self.registration.showNotification(payload.title ?? "Mehmed Order Manager", {
-      body: payload.body,
-      icon: "/icons/icon.svg",
-      badge: "/icons/icon.svg",
-      tag: payload.tag,
-      data: { url: payload.url ?? "/" },
-      vibrate: [200, 100, 200],
-    }),
+    Promise.all([
+      self.registration.showNotification(payload.title ?? "Mehmed Order Manager", {
+        body: payload.body,
+        icon: "/icons/icon.svg",
+        badge: "/icons/icon.svg",
+        tag: payload.tag,
+        data: { url: payload.url ?? "/" },
+        vibrate: [200, 100, 200],
+      }),
+      // Tell every open tab a push just landed so it can refresh its own
+      // data (see components/push-refresh-listener.tsx) — otherwise a tab
+      // that's already open only shows the new order after a manual
+      // reload, even though the notification already told the user it
+      // exists.
+      self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+        for (const client of clientList) {
+          client.postMessage({ type: "push-received", url: payload.url ?? "/" });
+        }
+      }),
+    ]),
   );
 });
 

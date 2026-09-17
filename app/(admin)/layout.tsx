@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/auth";
 import { AdminShell } from "@/components/mobile/admin-shell";
+import { PushRefreshListener } from "@/components/push-refresh-listener";
 
 export default async function AdminLayout({
   children,
@@ -8,5 +9,10 @@ export default async function AdminLayout({
 }) {
   const profile = await requireRole("admin");
 
-  return <AdminShell profile={profile}>{children}</AdminShell>;
+  return (
+    <>
+      <PushRefreshListener />
+      <AdminShell profile={profile}>{children}</AdminShell>
+    </>
+  );
 }
