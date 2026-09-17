@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/auth";
 import { MobileShell } from "@/components/mobile/mobile-shell";
+import { PushSoundPlayer } from "@/components/push-sound-player";
 
 export default async function RiderLayout({
   children,
@@ -9,8 +10,11 @@ export default async function RiderLayout({
   const profile = await requireRole("rider");
 
   return (
-    <MobileShell title="Mehmed Delivery" profile={profile}>
-      {children}
-    </MobileShell>
+    <>
+      <PushSoundPlayer />
+      <MobileShell title="Mehmed Delivery" profile={profile}>
+        {children}
+      </MobileShell>
+    </>
   );
 }

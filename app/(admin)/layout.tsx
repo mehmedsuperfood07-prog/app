@@ -1,6 +1,7 @@
 import { requireRole } from "@/lib/auth";
 import { AdminShell } from "@/components/mobile/admin-shell";
 import { PushRefreshListener } from "@/components/push-refresh-listener";
+import { PushSoundPlayer } from "@/components/push-sound-player";
 
 export default async function AdminLayout({
   children,
@@ -12,6 +13,7 @@ export default async function AdminLayout({
   return (
     <>
       <PushRefreshListener />
+      <PushSoundPlayer />
       <AdminShell profile={profile}>{children}</AdminShell>
     </>
   );
