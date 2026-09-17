@@ -11,7 +11,7 @@ export const DELIVERY_STATUSES = [
 ] as const;
 export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
 
-const NEXT_DELIVERY_STATUS: Record<DeliveryStatus, DeliveryStatus | null> = {
+const NEXT_DELIVERY_STATUS: Record<DeliveryStatus, Exclude<DeliveryStatus, "assigned"> | null> = {
   assigned: "picked_up",
   picked_up: "on_the_way",
   on_the_way: "delivered",
@@ -23,6 +23,20 @@ export const DELIVERY_STATUS_LABELS: Record<DeliveryStatus, string> = {
   picked_up: "Picked Up",
   on_the_way: "On the Way",
   delivered: "Delivered",
+};
+
+// Every rider-initiated status change notifies admin — not just the
+// final "delivered" step — so the office can follow a delivery's
+// progress without having to open the app and check. "assigned" is
+// excluded: that's the starting state a delivery is created in, never a
+// transition advanceDelivery produces.
+const DELIVERY_PUSH_COPY: Record<
+  Exclude<DeliveryStatus, "assigned">,
+  (clientName: string) => { title: string; body: string }
+> = {
+  picked_up: (name) => ({ title: "Order picked up", body: `${name} — rider has the order` }),
+  on_the_way: (name) => ({ title: "Rider on the way", body: `${name} — out for delivery` }),
+  delivered: (name) => ({ title: "Delivery completed", body: `${name} was delivered — invoice generated` }),
 };
 
 // Riders never see clients or products directly (those tables carry
@@ -189,21 +203,21 @@ export async function advanceDelivery(orderId: string) {
       .insert({ order_id: orderId, status: "delivered", changed_by: user.id });
 
     await createInvoiceForOrder(orderId);
-
-    // Uses clients_rider_view, not the clients table — the rider making
-    // this call has no RLS access to clients directly (same reasoning
-    // as everywhere else in this file).
-    const { data: client } = await supabase
-      .from("clients_rider_view")
-      .select("name")
-      .eq("id", order.client_id)
-      .single();
-    await sendPushToRole("admin", {
-      title: "Delivery completed",
-      body: `${client?.name ?? "An order"} was delivered — invoice generated`,
-      url: "/admin/invoices",
-    });
   }
+
+  // Uses clients_rider_view, not the clients table — the rider making
+  // this call has no RLS access to clients directly (same reasoning as
+  // everywhere else in this file).
+  const { data: client } = await supabase
+    .from("clients_rider_view")
+    .select("name")
+    .eq("id", order.client_id)
+    .single();
+  const copy = DELIVERY_PUSH_COPY[next](client?.name ?? "An order");
+  await sendPushToRole("admin", {
+    ...copy,
+    url: next === "delivered" ? "/admin/invoices" : "/admin/orders",
+  });
 }
 
 // ------------------------------------------------------------------
