@@ -51,7 +51,7 @@ export default async function ProductsPage() {
               <ProductIcon name={p.name} unit={p.unit} className="h-10 w-10" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="truncate font-semibold text-zinc-900 dark:text-zinc-50">
+                  <span className="line-clamp-2 font-semibold leading-snug text-zinc-900 dark:text-zinc-50">
                     {p.name}
                     {p.variant ? ` — ${p.variant}` : ""}
                   </span>

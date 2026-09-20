@@ -98,7 +98,7 @@ function ClientCard({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="truncate font-semibold text-zinc-900 dark:text-zinc-50">{c.name}</span>
+            <span className="line-clamp-2 font-semibold leading-snug text-zinc-900 dark:text-zinc-50">{c.name}</span>
             {!c.active && <StatusPill tone="neutral">Inactive</StatusPill>}
           </div>
           <div className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
