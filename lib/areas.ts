@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { dbErrorMessage } from "@/lib/errors";
 
 export type Area = {
   id: string;
@@ -66,13 +67,13 @@ export async function createArea(name: string) {
 
   const supabase = await createClient();
   const { error } = await supabase.from("areas").insert({ name });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(dbErrorMessage(error));
 }
 
 export async function deleteArea(id: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("areas").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(dbErrorMessage(error));
 }
 
 export async function assignSalesmanToArea(salesmanId: string, areaId: string) {
@@ -80,7 +81,7 @@ export async function assignSalesmanToArea(salesmanId: string, areaId: string) {
   const { error } = await supabase
     .from("salesman_areas")
     .insert({ salesman_id: salesmanId, area_id: areaId });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(dbErrorMessage(error));
 }
 
 export async function unassignSalesmanFromArea(
@@ -93,5 +94,5 @@ export async function unassignSalesmanFromArea(
     .delete()
     .eq("salesman_id", salesmanId)
     .eq("area_id", areaId);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(dbErrorMessage(error));
 }

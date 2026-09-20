@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
+import { dbErrorMessage } from "@/lib/errors";
 
 export { CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS, type CustomerType } from "@/lib/constants";
 import type { CustomerType } from "@/lib/constants";
@@ -51,21 +52,29 @@ async function requireAdminCaller() {
   }
 }
 
-export async function createClientRecord(input: ClientInput) {
+function validateClient(input: { name: string; credit_limit: number }) {
   if (!input.name) throw new Error("Client name is required.");
+  if (!Number.isFinite(input.credit_limit) || input.credit_limit < 0) {
+    throw new Error("Credit limit must be a number, 0 or more.");
+  }
+}
+
+export async function createClientRecord(input: ClientInput) {
+  validateClient(input);
   await requireAdminCaller();
 
   const supabase = await createClient();
   const { error } = await supabase.from("clients").insert(input);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(dbErrorMessage(error));
 }
 
 export async function updateClientRecord(id: string, input: ClientInput) {
+  validateClient(input);
   await requireAdminCaller();
 
   const supabase = await createClient();
   const { error } = await supabase.from("clients").update(input).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(dbErrorMessage(error));
 }
 
 export async function setClientActive(id: string, active: boolean) {
@@ -76,7 +85,7 @@ export async function setClientActive(id: string, active: boolean) {
     .from("clients")
     .update({ active })
     .eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(dbErrorMessage(error));
 }
 
 // Salesman-facing: RLS already scopes "clients" select/insert to the
@@ -112,7 +121,7 @@ export type NewClientInput = {
 };
 
 export async function createMyClient(input: NewClientInput) {
-  if (!input.name) throw new Error("Client name is required.");
+  validateClient(input);
 
   const supabase = await createClient();
   const {
@@ -123,5 +132,5 @@ export async function createMyClient(input: NewClientInput) {
   const { error } = await supabase
     .from("clients")
     .insert({ ...input, assigned_salesman_id: user.id });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(dbErrorMessage(error));
 }

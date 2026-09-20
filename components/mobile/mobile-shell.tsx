@@ -15,13 +15,13 @@ export function MobileShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <ShellHeader title={title} profile={profile} />
       <main
         className="mx-auto max-w-lg px-4 py-5"
         style={{
           paddingBottom: bottomNav
-            ? "calc(var(--safe-bottom) + 5.5rem)"
+            ? "calc(var(--safe-bottom) + 6.5rem)"
             : "calc(var(--safe-bottom) + 1.25rem)",
         }}
       >

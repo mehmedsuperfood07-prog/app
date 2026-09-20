@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, ClipboardList, Users, Receipt, Menu } from "lucide-react";
+import { NavDock, NavTabButton, NavTabLink } from "@/components/mobile/nav-tab";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -29,46 +29,17 @@ export function AdminBottomNav({ onMore }: { onMore: () => void }) {
       pathname.startsWith("/admin/accounts"));
 
   return (
-    <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-surface/95 backdrop-blur dark:border-zinc-800"
-      style={{ paddingBottom: "var(--safe-bottom)" }}
-    >
-      <div className="mx-auto flex max-w-lg items-stretch justify-around">
-        {NAV_ITEMS.map((item) => {
-          const active = item.href === activeHref;
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-medium"
-            >
-              <Icon
-                size={22}
-                strokeWidth={active ? 2.4 : 1.8}
-                className={active ? "text-accent" : "text-zinc-400 dark:text-zinc-500"}
-              />
-              <span className={active ? "text-accent" : "text-zinc-500 dark:text-zinc-400"}>
-                {item.label}
-              </span>
-            </Link>
-          );
-        })}
-        <button
-          type="button"
-          onClick={onMore}
-          className="flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-medium"
-        >
-          <Menu
-            size={22}
-            strokeWidth={onMoreSection ? 2.4 : 1.8}
-            className={onMoreSection ? "text-accent" : "text-zinc-400 dark:text-zinc-500"}
-          />
-          <span className={onMoreSection ? "text-accent" : "text-zinc-500 dark:text-zinc-400"}>
-            More
-          </span>
-        </button>
-      </div>
-    </nav>
+    <NavDock>
+      {NAV_ITEMS.map((item) => (
+        <NavTabLink
+          key={item.href}
+          href={item.href}
+          icon={item.icon}
+          label={item.label}
+          active={item.href === activeHref}
+        />
+      ))}
+      <NavTabButton onClick={onMore} icon={Menu} label="More" active={onMoreSection} />
+    </NavDock>
   );
 }

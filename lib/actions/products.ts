@@ -1,13 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import {
   createProduct,
   updateProduct,
   setProductActive,
   type ProductInput,
 } from "@/lib/products";
+import { ok, fail, type ActionResult } from "@/lib/actions/result";
 
 function parseProductInput(formData: FormData): ProductInput {
   return {
@@ -20,37 +20,40 @@ function parseProductInput(formData: FormData): ProductInput {
   };
 }
 
-export async function createProductAction(formData: FormData) {
+export async function createProductAction(formData: FormData): Promise<ActionResult> {
   try {
     await createProduct(parseProductInput(formData));
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Could not create product.";
-    redirect(`/admin/products?error=${encodeURIComponent(message)}`);
+    return fail(err, "Could not create product.");
   }
 
   revalidatePath("/admin/products");
+  return ok("Product added.");
 }
 
-export async function updateProductAction(formData: FormData) {
+export async function updateProductAction(formData: FormData): Promise<ActionResult> {
   const id = String(formData.get("id") ?? "");
 
   try {
     await updateProduct(id, parseProductInput(formData));
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Could not update product.";
-    redirect(`/admin/products?error=${encodeURIComponent(message)}`);
+    return fail(err, "Could not update product.");
   }
 
   revalidatePath("/admin/products");
+  return ok("Product saved.");
 }
 
-export async function toggleProductActiveAction(formData: FormData) {
+export async function toggleProductActiveAction(formData: FormData): Promise<ActionResult> {
   const id = String(formData.get("id") ?? "");
   const active = formData.get("active") === "true";
 
-  await setProductActive(id, active);
+  try {
+    await setProductActive(id, active);
+  } catch (err) {
+    return fail(err, "Could not update product.");
+  }
 
   revalidatePath("/admin/products");
+  return ok(active ? "Product activated." : "Product deactivated.");
 }

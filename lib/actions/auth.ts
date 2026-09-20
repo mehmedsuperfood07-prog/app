@@ -3,8 +3,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { roleHome } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import type { ActionResult } from "@/lib/actions/result";
 
-export async function login(formData: FormData) {
+export async function login(formData: FormData): Promise<ActionResult | void> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
 
@@ -15,7 +16,7 @@ export async function login(formData: FormData) {
   });
 
   if (error || !data.user) {
-    redirect("/login?error=invalid");
+    return { ok: false, error: "Incorrect email or password." };
   }
 
   const { data: profile } = await supabase
@@ -26,7 +27,7 @@ export async function login(formData: FormData) {
 
   if (!profile || !profile.active) {
     await supabase.auth.signOut();
-    redirect("/login?error=inactive");
+    return { ok: false, error: "This account has been deactivated." };
   }
 
   redirect(roleHome(profile.role));

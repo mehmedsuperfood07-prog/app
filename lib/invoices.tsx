@@ -3,6 +3,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { InvoiceDocument } from "@/lib/pdf/invoice-document";
+import { formatDate } from "@/lib/format";
 
 // Runs on the service-role client: this is a system-triggered side effect
 // of a rider marking a delivery complete (see advanceDelivery in
@@ -11,6 +12,11 @@ import { InvoiceDocument } from "@/lib/pdf/invoice-document";
 // ledger balance, and shouldn't — the authorization for "this order was
 // really just delivered" already happened in the RLS-respecting calls
 // that ran before this one.
+//
+// Idempotent: advanceDelivery's conditional update already guarantees this
+// runs once per order, but a retry or replay must still never produce a
+// second invoice (and a second charge to the client's balance), so an
+// existing invoice for the order short-circuits everything below.
 //
 // Known limitation: these are separate network calls, not one DB
 // transaction, so a failure partway through (e.g. the balance update)
@@ -21,6 +27,13 @@ import { InvoiceDocument } from "@/lib/pdf/invoice-document";
 // becomes a real problem.
 export async function createInvoiceForOrder(orderId: string) {
   const admin = createAdminClient();
+
+  const { data: existing } = await admin
+    .from("invoices")
+    .select("id")
+    .eq("order_id", orderId)
+    .limit(1);
+  if (existing && existing.length > 0) return;
 
   const { data: order } = await admin
     .from("orders")
@@ -63,7 +76,7 @@ export async function createInvoiceForOrder(orderId: string) {
   const pdfBuffer = await renderToBuffer(
     <InvoiceDocument
       invoiceNumber={invoiceNumber}
-      issuedAt={new Date().toLocaleDateString("en-GB")}
+      issuedAt={formatDate(new Date())}
       client={{
         name: client?.name ?? "Unknown client",
         address: client?.address ?? null,
@@ -97,6 +110,7 @@ export async function createInvoiceForOrder(orderId: string) {
 
 export type AdminInvoiceRow = {
   id: string;
+  order_id: string;
   invoice_number: string;
   amount: number;
   paid_amount: number;
@@ -110,12 +124,13 @@ export async function listInvoicesForAdmin(): Promise<AdminInvoiceRow[]> {
   const { data } = await supabase
     .from("invoices")
     .select(
-      "id, invoice_number, amount, paid_amount, created_at, pdf_url, order:orders(client:clients(id, name))",
+      "id, order_id, invoice_number, amount, paid_amount, created_at, pdf_url, order:orders(client:clients(id, name))",
     )
     .order("created_at", { ascending: false });
 
   type Row = {
     id: string;
+    order_id: string;
     invoice_number: string;
     amount: number;
     paid_amount: number;
@@ -126,6 +141,7 @@ export async function listInvoicesForAdmin(): Promise<AdminInvoiceRow[]> {
 
   return ((data ?? []) as unknown as Row[]).map((r) => ({
     id: r.id,
+    order_id: r.order_id,
     invoice_number: r.invoice_number,
     amount: r.amount,
     paid_amount: r.paid_amount,

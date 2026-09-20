@@ -10,6 +10,7 @@ import {
   type ClientInput,
   type NewClientInput,
 } from "@/lib/clients";
+import { ok, fail, type ActionResult } from "@/lib/actions/result";
 
 function parseClientInput(formData: FormData): ClientInput {
   return {
@@ -25,45 +26,43 @@ function parseClientInput(formData: FormData): ClientInput {
   };
 }
 
-export async function createClientAction(formData: FormData) {
+export async function createClientAction(formData: FormData): Promise<ActionResult> {
+  const input = parseClientInput(formData);
   try {
-    await createClientRecord(parseClientInput(formData));
+    await createClientRecord(input);
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Could not create client.";
-    redirect(`/admin/clients?error=${encodeURIComponent(message)}`);
+    return fail(err, "Could not create client.");
   }
 
   revalidatePath("/admin/clients");
+  return ok(`${input.name} added.`);
 }
 
-export async function updateClientAction(formData: FormData) {
+export async function updateClientAction(formData: FormData): Promise<ActionResult> {
   const id = String(formData.get("id") ?? "");
 
   try {
     await updateClientRecord(id, parseClientInput(formData));
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Could not update client.";
-    redirect(`/admin/clients?error=${encodeURIComponent(message)}`);
+    return fail(err, "Could not update client.");
   }
 
   revalidatePath("/admin/clients");
+  return ok("Client saved.");
 }
 
-export async function toggleClientActiveAction(formData: FormData) {
+export async function toggleClientActiveAction(formData: FormData): Promise<ActionResult> {
   const id = String(formData.get("id") ?? "");
   const active = formData.get("active") === "true";
 
   try {
     await setClientActive(id, active);
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Could not update client.";
-    redirect(`/admin/clients?error=${encodeURIComponent(message)}`);
+    return fail(err, "Could not update client.");
   }
 
   revalidatePath("/admin/clients");
+  return ok(active ? "Client activated." : "Client deactivated.");
 }
 
 function parseNewClientInput(formData: FormData): NewClientInput {
@@ -79,13 +78,11 @@ function parseNewClientInput(formData: FormData): NewClientInput {
   };
 }
 
-export async function createMyClientAction(formData: FormData) {
+export async function createMyClientAction(formData: FormData): Promise<ActionResult | void> {
   try {
     await createMyClient(parseNewClientInput(formData));
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Could not create client.";
-    redirect(`/salesman/clients/new?error=${encodeURIComponent(message)}`);
+    return fail(err, "Could not create client.");
   }
 
   redirect("/salesman?created=1");

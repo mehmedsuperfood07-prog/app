@@ -1,4 +1,4 @@
-import { X, AlertCircle } from "lucide-react";
+import { X, MapPin } from "lucide-react";
 import { listAreasWithSalesmen } from "@/lib/areas";
 import { listActiveSalesmen } from "@/lib/staff";
 import {
@@ -7,16 +7,13 @@ import {
   assignSalesmanAction,
   unassignSalesmanAction,
 } from "@/lib/actions/areas";
+import { ActionForm } from "@/components/action-form";
 import { Field, SelectField } from "@/components/form-field";
 import { PageHeader } from "@/components/mobile/page-header";
 import { Card } from "@/components/mobile/card";
+import { SubmitButton } from "@/components/mobile/submit-button";
 
-export default async function AreasPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
-  const { error } = await searchParams;
+export default async function AreasPage() {
   const [areas, salesmen] = await Promise.all([
     listAreasWithSalesmen(),
     listActiveSalesmen(),
@@ -24,41 +21,41 @@ export default async function AreasPage({
 
   return (
     <div>
-      <PageHeader title="Areas" subtitle="Service areas and coverage" />
-
-      {error && (
-        <p className="mb-3 flex items-center gap-1.5 rounded-xl bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900">
-          <AlertCircle size={14} /> {error}
-        </p>
-      )}
+      <PageHeader
+        title="Areas"
+        subtitle={`${areas.length} service area${areas.length === 1 ? "" : "s"} and who covers them`}
+      />
 
       <Card className="mb-4">
-        <form action={createAreaAction} className="flex items-end gap-2">
+        <ActionForm action={createAreaAction} resetOnSuccess className="flex items-end gap-2">
           <div className="flex-1">
             <Field label="New area name" name="name" required />
           </div>
-          <button
-            type="submit"
-            className="shrink-0 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground active:bg-accent/90"
-          >
+          <SubmitButton variant="compact" pendingLabel="Adding…">
             Add
-          </button>
-        </form>
+          </SubmitButton>
+        </ActionForm>
       </Card>
 
-      <div className="space-y-2.5">
+      <div className="grid items-start gap-2.5 lg:grid-cols-2">
         {areas.map((area) => (
           <Card key={area.id}>
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-zinc-900 dark:text-zinc-50">
+            <div className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-2.5 font-semibold text-zinc-900 dark:text-zinc-50">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent-soft-foreground">
+                  <MapPin size={17} />
+                </span>
                 {area.name}
               </span>
-              <form action={deleteAreaAction}>
+              <ActionForm
+                action={deleteAreaAction}
+                confirmMessage={`Delete ${area.name}? Clients in this area will be left with no area.`}
+              >
                 <input type="hidden" name="id" value={area.id} />
-                <button type="submit" className="text-xs font-semibold text-zinc-500 underline dark:text-zinc-400">
+                <SubmitButton variant="link" pendingLabel="Deleting…">
                   Delete
-                </button>
-              </form>
+                </SubmitButton>
+              </ActionForm>
             </div>
 
             <div className="mt-3 flex flex-wrap gap-1.5">
@@ -71,26 +68,28 @@ export default async function AreasPage({
                   className="flex items-center gap-1.5 rounded-full bg-zinc-100 py-1 pl-3 pr-1.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
                 >
                   {s.full_name}
-                  <form action={unassignSalesmanAction}>
+                  <ActionForm action={unassignSalesmanAction}>
                     <input type="hidden" name="area_id" value={area.id} />
                     <input type="hidden" name="salesman_id" value={s.id} />
                     <button
                       type="submit"
                       aria-label={`Remove ${s.full_name}`}
-                      className="flex h-4 w-4 items-center justify-center rounded-full bg-zinc-300 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300"
+                      className="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-300 text-zinc-600 active:bg-zinc-400 dark:bg-zinc-700 dark:text-zinc-300"
                     >
-                      <X size={10} />
+                      <X size={11} />
                     </button>
-                  </form>
+                  </ActionForm>
                 </span>
               ))}
             </div>
 
-            <form action={assignSalesmanAction} className="mt-3 flex items-end gap-2">
+            <ActionForm action={assignSalesmanAction} resetOnSuccess className="mt-3 flex items-end gap-2">
               <input type="hidden" name="area_id" value={area.id} />
               <div className="flex-1">
-                <SelectField label="Assign salesman" name="salesman_id">
-                  <option value="">Choose…</option>
+                <SelectField label="Assign salesman" name="salesman_id" required defaultValue="">
+                  <option value="" disabled>
+                    Choose…
+                  </option>
                   {salesmen.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.full_name}
@@ -98,13 +97,10 @@ export default async function AreasPage({
                   ))}
                 </SelectField>
               </div>
-              <button
-                type="submit"
-                className="shrink-0 rounded-xl border border-zinc-300 px-3.5 py-2.5 text-xs font-semibold text-zinc-700 active:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:active:bg-zinc-900"
-              >
+              <SubmitButton variant="compactOutline" pendingLabel="Adding…">
                 Add
-              </button>
-            </form>
+              </SubmitButton>
+            </ActionForm>
           </Card>
         ))}
       </div>

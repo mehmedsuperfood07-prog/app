@@ -1,3 +1,8 @@
+const inputClasses =
+  "w-full rounded-xl border border-zinc-300 bg-surface px-3.5 py-2.5 text-sm dark:border-zinc-700";
+
+// The label wraps its control so tapping the label text focuses the
+// input — a plain <label> sibling without htmlFor does nothing.
 export function Field({
   label,
   name,
@@ -6,6 +11,8 @@ export function Field({
   required,
   placeholder,
   step,
+  autoComplete,
+  minLength,
   className = "",
 }: {
   label: string;
@@ -15,13 +22,13 @@ export function Field({
   required?: boolean;
   placeholder?: string;
   step?: string;
+  autoComplete?: string;
+  minLength?: number;
   className?: string;
 }) {
   return (
-    <div className={`space-y-1.5 ${className}`}>
-      <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-        {label}
-      </label>
+    <label className={`block space-y-1.5 ${className}`}>
+      <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{label}</span>
       <input
         name={name}
         type={type}
@@ -29,9 +36,11 @@ export function Field({
         required={required}
         placeholder={placeholder}
         step={step}
-        className="w-full rounded-xl border border-zinc-300 bg-surface px-3.5 py-2.5 text-sm dark:border-zinc-700"
+        autoComplete={autoComplete}
+        minLength={minLength}
+        className={inputClasses}
       />
-    </div>
+    </label>
   );
 }
 
@@ -51,18 +60,16 @@ export function SelectField({
   className?: string;
 }) {
   return (
-    <div className={`space-y-1.5 ${className}`}>
-      <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-        {label}
-      </label>
+    <label className={`block space-y-1.5 ${className}`}>
+      <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{label}</span>
       <select
         name={name}
         defaultValue={defaultValue}
         required={required}
-        className="w-full rounded-xl border border-zinc-300 bg-surface px-3.5 py-2.5 text-sm dark:border-zinc-700"
+        className={inputClasses}
       >
         {children}
       </select>
-    </div>
+    </label>
   );
 }

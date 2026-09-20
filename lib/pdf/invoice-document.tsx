@@ -1,5 +1,6 @@
 import "server-only";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { formatRs } from "@/lib/format";
 
 // Brand green (#1b7a3e) and its light tint (#d7f0a2), matching
 // mehmed.vercel.app exactly — the only colors used in this document.
@@ -99,9 +100,9 @@ export function InvoiceDocument({
                 {item.variant ? ` — ${item.variant}` : ""} ({item.packSize} {item.unit})
               </Text>
               <Text style={styles.colQty}>{item.quantity}</Text>
-              <Text style={styles.colUnitPrice}>Rs {item.unitPrice}</Text>
+              <Text style={styles.colUnitPrice}>{formatRs(item.unitPrice)}</Text>
               <Text style={styles.colLineTotal}>
-                Rs {item.quantity * item.unitPrice}
+                {formatRs(item.quantity * item.unitPrice)}
               </Text>
             </View>
           ))}
@@ -109,7 +110,7 @@ export function InvoiceDocument({
 
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalValue}>Rs {total}</Text>
+          <Text style={styles.totalValue}>{formatRs(total)}</Text>
         </View>
       </Page>
     </Document>

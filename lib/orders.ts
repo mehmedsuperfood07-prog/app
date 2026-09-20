@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
-import { sendPushToRole } from "@/lib/push";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { deferPush, sendPushToRole } from "@/lib/push";
+import { formatRs } from "@/lib/format";
 
 export type OrderProduct = {
   id: string;
@@ -9,30 +11,6 @@ export type OrderProduct = {
   pack_size: string;
   price: number;
 };
-
-export type OrderClient = {
-  id: string;
-  name: string;
-  address: string | null;
-  phone: string | null;
-  current_balance: number;
-  credit_limit: number;
-  area: { name: string } | null;
-};
-
-export async function getClientForOrder(
-  clientId: string,
-): Promise<OrderClient | null> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("clients")
-    .select(
-      "id, name, address, phone, current_balance, credit_limit, area:areas(name)",
-    )
-    .eq("id", clientId)
-    .single();
-  return data as unknown as OrderClient | null;
-}
 
 // Effective price = the client's negotiated override if one exists,
 // otherwise the catalog default. Never the other way around.
@@ -71,6 +49,8 @@ export type OrderLineInput = {
   quantity: number;
 };
 
+const MAX_LINE_QUANTITY = 100_000;
+
 // Prices are always looked up here from the catalog/override tables at
 // submit time — never taken from the client request — so a salesman can
 // never place an order at a price they typed or tampered with in the form.
@@ -90,7 +70,9 @@ export async function createOrder(
   items: OrderLineInput[],
   createdOfflineAt?: string,
 ) {
-  const lineItems = items.filter((i) => i.quantity > 0);
+  const lineItems = items.filter(
+    (i) => Number.isFinite(i.quantity) && i.quantity > 0 && i.quantity <= MAX_LINE_QUANTITY,
+  );
   if (lineItems.length === 0) {
     throw new Error("Add at least one product with a quantity.");
   }
@@ -100,6 +82,22 @@ export async function createOrder(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not signed in.");
+
+  // Replay-safe: an offline order that reached the server but whose
+  // response never made it back gets re-sent by the device. The moment it
+  // was taken on the device (created_offline_at) is unique per queued
+  // order, so if we've already stored one for this salesman and client we
+  // hand back that order instead of creating a second, double-billed one.
+  if (createdOfflineAt) {
+    const { data: existing } = await supabase
+      .from("orders")
+      .select("id")
+      .eq("salesman_id", user.id)
+      .eq("client_id", clientId)
+      .eq("created_offline_at", createdOfflineAt)
+      .limit(1);
+    if (existing && existing.length > 0) return existing[0].id as string;
+  }
 
   const priced = await listProductsWithPricingForClient(clientId);
   const priceMap = new Map(priced.map((p) => [p.id, p.price]));
@@ -133,54 +131,24 @@ export async function createOrder(
     (sum, i) => sum + i.quantity * priceMap.get(i.product_id)!,
     0,
   );
-  const client = await getClientForOrder(clientId);
-  // Awaited, not fire-and-forget: on serverless, an un-awaited promise
-  // can get cut off once the response is sent, so this has to finish
-  // before createOrder returns. sendPushToRole never throws on its own.
-  await sendPushToRole("admin", {
-    title: "New order placed",
-    body: `${client?.name ?? "A client"} · Rs ${total}`,
-    url: `/admin/orders`,
+
+  // Sent after the response goes back, so the salesman's order confirms
+  // immediately instead of waiting on the push services.
+  deferPush(async () => {
+    const admin = createAdminClient();
+    const { data: client } = await admin
+      .from("clients")
+      .select("name")
+      .eq("id", clientId)
+      .single();
+    await sendPushToRole("admin", {
+      title: "New order placed",
+      body: `${client?.name ?? "A client"} · ${formatRs(total)}`,
+      url: "/admin/orders",
+    });
   });
 
   return orderId as string;
-}
-
-export type OrderSummary = {
-  id: string;
-  status: string;
-  created_at: string;
-  client: { id: string; name: string } | null;
-  total: number;
-};
-
-type OrderListRow = {
-  id: string;
-  status: string;
-  created_at: string;
-  client: { id: string; name: string } | null;
-  order_items: { quantity: number; unit_price_at_order_time: number }[];
-};
-
-export async function listOrdersForSalesman(): Promise<OrderSummary[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("orders")
-    .select(
-      "id, status, created_at, client:clients(id, name), order_items(quantity, unit_price_at_order_time)",
-    )
-    .order("created_at", { ascending: false });
-
-  return ((data ?? []) as unknown as OrderListRow[]).map((o) => ({
-    id: o.id,
-    status: o.status,
-    created_at: o.created_at,
-    client: o.client,
-    total: o.order_items.reduce(
-      (sum, item) => sum + item.quantity * item.unit_price_at_order_time,
-      0,
-    ),
-  }));
 }
 
 export type OrderDetail = {

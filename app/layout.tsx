@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
+import { ToastProvider } from "@/components/toast";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -17,6 +18,26 @@ export const metadata: Metadata = {
   title: "Mehmed Order Manager",
   description: "Order management for Mehmed Super Foods",
   manifest: "/manifest.json",
+  applicationName: "Mehmed Orders",
+  icons: {
+    icon: "/icons/icon.svg",
+    apple: "/icons/apple-touch-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    title: "Mehmed Orders",
+    statusBarStyle: "default",
+  },
+  formatDetection: { telephone: false },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#1b7a3e" },
+    { media: "(prefers-color-scheme: dark)", color: "#09090b" },
+  ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -27,7 +48,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <ServiceWorkerRegister />
-        {children}
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );

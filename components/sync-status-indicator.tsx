@@ -1,28 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { WifiOff, RefreshCw } from "lucide-react";
 import { db } from "@/lib/offline/db";
 import { setupAutoSync, syncPendingOrders } from "@/lib/offline/sync";
 
+function subscribeToConnectivity(onChange: () => void) {
+  window.addEventListener("online", onChange);
+  window.addEventListener("offline", onChange);
+  return () => {
+    window.removeEventListener("online", onChange);
+    window.removeEventListener("offline", onChange);
+  };
+}
+
 export function SyncStatusIndicator() {
-  const [online, setOnline] = useState(() =>
-    typeof navigator !== "undefined" ? navigator.onLine : true,
+  // The server snapshot is always "online": Node 21+ defines a global
+  // `navigator` without `onLine`, so reading it during server rendering
+  // yields undefined and briefly renders an "Offline" pill that the
+  // browser then throws away (a hydration mismatch).
+  const online = useSyncExternalStore(
+    subscribeToConnectivity,
+    () => navigator.onLine,
+    () => true,
   );
 
-  useEffect(() => {
-    const onOnline = () => setOnline(true);
-    const onOffline = () => setOnline(false);
-    window.addEventListener("online", onOnline);
-    window.addEventListener("offline", onOffline);
-    const stopAutoSync = setupAutoSync();
-    return () => {
-      window.removeEventListener("online", onOnline);
-      window.removeEventListener("offline", onOffline);
-      stopAutoSync();
-    };
-  }, []);
+  useEffect(() => setupAutoSync(), []);
 
   const pending = useLiveQuery(() => db.pendingOrders.toArray(), []) ?? [];
   const failedCount = pending.filter((o) => o.status === "failed").length;

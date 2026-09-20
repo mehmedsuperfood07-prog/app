@@ -1,14 +1,14 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Phone, MapPin, AlertCircle } from "lucide-react";
-import {
-  getDeliveryDetail,
-  type DeliveryStatus,
-} from "@/lib/deliveries";
+import { Phone, MapPin, Navigation, CircleCheck } from "lucide-react";
+import { getDeliveryDetail, type DeliveryStatus } from "@/lib/deliveries";
 import { advanceDeliveryAction } from "@/lib/actions/deliveries";
+import { ActionForm } from "@/components/action-form";
 import { PageHeader } from "@/components/mobile/page-header";
 import { Card } from "@/components/mobile/card";
-import { DeliveryStatusPill } from "@/components/mobile/status-pill";
-import { Button } from "@/components/mobile/button";
+import { ProductIcon } from "@/components/mobile/product-icon";
+import { StepTracker } from "@/components/mobile/step-tracker";
+import { SubmitButton } from "@/components/mobile/submit-button";
 import { BottomActionBar } from "@/components/mobile/bottom-action-bar";
 
 const NEXT_ACTION_LABEL: Record<DeliveryStatus, string | null> = {
@@ -18,19 +18,24 @@ const NEXT_ACTION_LABEL: Record<DeliveryStatus, string | null> = {
   delivered: null,
 };
 
+const PENDING_LABEL: Record<DeliveryStatus, string> = {
+  assigned: "Updating…",
+  picked_up: "Updating…",
+  on_the_way: "Delivering…",
+  delivered: "",
+};
+
 export default async function DeliveryDetailPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
 }) {
   const { id } = await params;
-  const { error } = await searchParams;
   const delivery = await getDeliveryDetail(id);
   if (!delivery) notFound();
 
   const nextLabel = NEXT_ACTION_LABEL[delivery.delivery_status];
+  const address = delivery.client?.address;
 
   return (
     <div>
@@ -38,16 +43,29 @@ export default async function DeliveryDetailPage({
         title={delivery.client?.name ?? "Unknown client"}
         backHref="/rider"
         backLabel="My Deliveries"
-        action={<DeliveryStatusPill status={delivery.delivery_status} />}
       />
 
-      {(delivery.client?.address || delivery.client?.phone) && (
-        <Card className="mb-4 space-y-1.5">
-          {delivery.client?.address && (
-            <p className="flex items-start gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-              <MapPin size={16} className="mt-0.5 shrink-0 text-zinc-400" />
-              {delivery.client.address}
-            </p>
+      <Card className="mb-4">
+        <StepTracker status={delivery.delivery_status} />
+      </Card>
+
+      {(address || delivery.client?.phone) && (
+        <Card className="mb-4 space-y-3">
+          {address && (
+            <div className="flex items-start justify-between gap-3">
+              <p className="flex items-start gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                <MapPin size={16} className="mt-0.5 shrink-0 text-zinc-400" />
+                {address}
+              </p>
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex shrink-0 items-center gap-1 rounded-full bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent active:bg-accent/20"
+              >
+                <Navigation size={12} /> Directions
+              </a>
+            </div>
           )}
           {delivery.client?.phone && (
             <a
@@ -61,16 +79,18 @@ export default async function DeliveryDetailPage({
         </Card>
       )}
 
-      {error && (
-        <p className="mb-3 flex items-center gap-1.5 rounded-xl bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900">
-          <AlertCircle size={14} /> {error}
-        </p>
-      )}
-
-      <div className="space-y-2.5 pb-20">
+      <h2 className="mb-2 text-sm font-bold text-zinc-900 dark:text-zinc-50">
+        Items to deliver ({delivery.items.length})
+      </h2>
+      <div className="space-y-2.5 pb-24">
         {delivery.items.map((item) => (
-          <Card key={item.id} className="flex items-center justify-between gap-3">
-            <div className="min-w-0 text-sm">
+          <Card key={item.id} className="flex items-center gap-3">
+            <ProductIcon
+              name={item.product?.name ?? ""}
+              unit={item.product?.unit ?? ""}
+              className="h-10 w-10"
+            />
+            <div className="min-w-0 flex-1 text-sm">
               <p className="font-semibold text-zinc-900 dark:text-zinc-50">
                 {item.product?.name ?? "Unknown product"}
                 {item.product?.variant ? ` — ${item.product.variant}` : ""}
@@ -86,15 +106,27 @@ export default async function DeliveryDetailPage({
         ))}
       </div>
 
+      {!nextLabel && (
+        <Card className="flex items-center gap-3 bg-accent-soft text-accent-soft-foreground">
+          <CircleCheck size={22} className="shrink-0" />
+          <div className="min-w-0 flex-1 text-sm">
+            <p className="font-semibold">Delivered</p>
+            <Link href="/rider" className="text-xs font-semibold underline">
+              Back to my deliveries
+            </Link>
+          </div>
+        </Card>
+      )}
+
       {nextLabel && (
-        <BottomActionBar>
-          <form action={advanceDeliveryAction}>
-            <input type="hidden" name="order_id" value={delivery.id} />
-            <Button type="submit" className="w-full py-3.5">
+        <ActionForm action={advanceDeliveryAction}>
+          <input type="hidden" name="order_id" value={delivery.id} />
+          <BottomActionBar>
+            <SubmitButton variant="bar" pendingLabel={PENDING_LABEL[delivery.delivery_status]}>
               {nextLabel}
-            </Button>
-          </form>
-        </BottomActionBar>
+            </SubmitButton>
+          </BottomActionBar>
+        </ActionForm>
       )}
     </div>
   );

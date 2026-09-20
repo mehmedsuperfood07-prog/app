@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { startOfTodayPakistan } from "@/lib/format";
 
 export type DashboardStats = {
   ordersToday: number;
@@ -19,8 +20,9 @@ export type DashboardStats = {
 export async function getDashboardStats(): Promise<DashboardStats> {
   const supabase = await createClient();
 
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
+  // "Today" starts at midnight Pakistan time — the server runs on UTC, so
+  // setHours(0) would roll the day over at 5 AM in Lahore.
+  const startOfToday = startOfTodayPakistan();
   const startOfWeek = new Date();
   startOfWeek.setDate(startOfWeek.getDate() - 7);
 

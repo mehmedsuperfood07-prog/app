@@ -1,59 +1,55 @@
-import { ChevronDown, AlertCircle, Plus } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 import { listProducts } from "@/lib/products";
 import { PRODUCT_UNITS } from "@/lib/constants";
+import { formatRs } from "@/lib/format";
 import {
   createProductAction,
   updateProductAction,
   toggleProductActiveAction,
 } from "@/lib/actions/products";
+import { ActionForm } from "@/components/action-form";
 import { Field, SelectField } from "@/components/form-field";
 import { PageHeader } from "@/components/mobile/page-header";
+import { ProductIcon } from "@/components/mobile/product-icon";
 import { StatusPill } from "@/components/mobile/status-pill";
+import { SubmitButton } from "@/components/mobile/submit-button";
 
-export default async function ProductsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
-  const { error } = await searchParams;
+const detailsClasses =
+  "group overflow-hidden rounded-2xl border border-zinc-200/80 bg-surface shadow-sm dark:border-zinc-800";
+
+export default async function ProductsPage() {
   const products = await listProducts();
 
   return (
     <div>
       <PageHeader title="Products" subtitle="The default price list" />
 
-      {error && (
-        <p className="mb-3 flex items-center gap-1.5 rounded-xl bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900">
-          <AlertCircle size={14} /> {error}
-        </p>
-      )}
-
-      <details className="group mb-4 overflow-hidden rounded-2xl border border-zinc-200/80 bg-surface shadow-sm dark:border-zinc-800">
+      <details className={`${detailsClasses} mb-4`}>
         <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3.5 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
           <span className="flex items-center gap-1.5">
             <Plus size={16} className="text-accent" /> Add product
           </span>
-          <ChevronDown size={16} className="text-zinc-400 group-open:rotate-180" />
+          <ChevronDown
+            size={16}
+            className="text-zinc-400 transition-transform group-open:rotate-180"
+          />
         </summary>
-        <form action={createProductAction} className="space-y-3 border-t border-zinc-100 p-4 dark:border-zinc-800">
+        <ActionForm
+          action={createProductAction}
+          resetOnSuccess
+          className="space-y-3 border-t border-zinc-100 p-4 dark:border-zinc-800"
+        >
           <ProductFields />
-          <button
-            type="submit"
-            className="w-full rounded-full bg-accent py-3 text-sm font-semibold text-accent-foreground active:bg-accent/90"
-          >
-            Add product
-          </button>
-        </form>
+          <SubmitButton pendingLabel="Adding…">Add product</SubmitButton>
+        </ActionForm>
       </details>
 
-      <div className="space-y-2.5">
+      <div className="grid items-start gap-2.5 lg:grid-cols-2">
         {products.map((p) => (
-          <details
-            key={p.id}
-            className="group overflow-hidden rounded-2xl border border-zinc-200/80 bg-surface shadow-sm dark:border-zinc-800"
-          >
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3.5 text-sm">
-              <div className="min-w-0">
+          <details key={p.id} className={detailsClasses}>
+            <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3.5 text-sm">
+              <ProductIcon name={p.name} unit={p.unit} className="h-10 w-10" />
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="truncate font-semibold text-zinc-900 dark:text-zinc-50">
                     {p.name}
@@ -62,32 +58,39 @@ export default async function ProductsPage({
                   {!p.active && <StatusPill tone="neutral">Inactive</StatusPill>}
                 </div>
                 <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                  {p.pack_size} {p.unit} · Rs {p.default_price}
+                  {p.pack_size} {p.unit}
+                  {p.category ? ` · ${p.category}` : ""}
                 </div>
               </div>
-              <ChevronDown size={16} className="shrink-0 text-zinc-400 group-open:rotate-180" />
+              <span className="shrink-0 text-sm font-bold text-zinc-900 dark:text-zinc-50">
+                {formatRs(p.default_price)}
+              </span>
+              <ChevronDown
+                size={16}
+                className="shrink-0 text-zinc-400 transition-transform group-open:rotate-180"
+              />
             </summary>
             <div className="border-t border-zinc-100 px-4 py-4 dark:border-zinc-800">
-              <form action={updateProductAction} className="space-y-3">
+              <ActionForm action={updateProductAction} className="space-y-3">
                 <input type="hidden" name="id" value={p.id} />
                 <ProductFields product={p} />
-                <button
-                  type="submit"
-                  className="w-full rounded-full bg-accent py-3 text-sm font-semibold text-accent-foreground active:bg-accent/90"
-                >
-                  Save changes
-                </button>
-              </form>
-              <form action={toggleProductActiveAction} className="mt-3">
+                <SubmitButton pendingLabel="Saving…">Save changes</SubmitButton>
+              </ActionForm>
+              <ActionForm
+                action={toggleProductActiveAction}
+                className="mt-3"
+                confirmMessage={
+                  p.active
+                    ? `Deactivate ${p.name}? Salesmen won't be able to order it until it's activated again.`
+                    : undefined
+                }
+              >
                 <input type="hidden" name="id" value={p.id} />
                 <input type="hidden" name="active" value={(!p.active).toString()} />
-                <button
-                  type="submit"
-                  className="w-full rounded-full border border-zinc-300 py-2.5 text-sm font-medium text-zinc-600 active:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:active:bg-zinc-900"
-                >
+                <SubmitButton variant="outline" pendingLabel="Updating…">
                   {p.active ? "Deactivate" : "Activate"}
-                </button>
-              </form>
+                </SubmitButton>
+              </ActionForm>
             </div>
           </details>
         ))}

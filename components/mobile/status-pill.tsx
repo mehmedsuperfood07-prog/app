@@ -37,7 +37,7 @@ const ORDER_STATUS_TONE: Record<string, PillTone> = {
   cancelled: "neutral",
 };
 
-const ORDER_STATUS_LABEL: Record<string, string> = {
+export const ORDER_STATUS_LABEL: Record<string, string> = {
   draft: "Draft",
   pending_sync: "Pending sync",
   placed: "Placed",

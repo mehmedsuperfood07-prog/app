@@ -1,17 +1,13 @@
 import { CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS } from "@/lib/constants";
 import { listMyAreas } from "@/lib/areas";
 import { createMyClientAction } from "@/lib/actions/clients";
+import { ActionForm } from "@/components/action-form";
 import { Field, SelectField } from "@/components/form-field";
 import { PageHeader } from "@/components/mobile/page-header";
-import { Button } from "@/components/mobile/button";
+import { SubmitButton } from "@/components/mobile/submit-button";
 import { BottomActionBar } from "@/components/mobile/bottom-action-bar";
 
-export default async function NewClientPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
-  const { error } = await searchParams;
+export default async function NewClientPage() {
   const areas = await listMyAreas();
 
   return (
@@ -23,13 +19,7 @@ export default async function NewClientPage({
         backLabel="My Clients"
       />
 
-      {error && (
-        <p className="mb-3 rounded-xl bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900">
-          {error}
-        </p>
-      )}
-
-      <form id="new-client-form" action={createMyClientAction} className="space-y-3.5 pb-20">
+      <ActionForm action={createMyClientAction} className="space-y-3.5 pb-24">
         <Field label="Name" name="name" required />
         <SelectField
           label="Customer type"
@@ -43,7 +33,7 @@ export default async function NewClientPage({
           ))}
         </SelectField>
         <Field label="Address" name="address" />
-        <Field label="Phone" name="phone" />
+        <Field label="Phone" name="phone" type="tel" />
         <SelectField label="Area" name="area_id">
           <option value="">No area</option>
           {areas.map((a) => (
@@ -60,13 +50,13 @@ export default async function NewClientPage({
           defaultValue="0"
           required
         />
-      </form>
 
-      <BottomActionBar>
-        <Button type="submit" form="new-client-form" className="w-full py-3.5">
-          Add client
-        </Button>
-      </BottomActionBar>
+        <BottomActionBar>
+          <SubmitButton variant="bar" pendingLabel="Adding client…">
+            Add client
+          </SubmitButton>
+        </BottomActionBar>
+      </ActionForm>
     </div>
   );
 }

@@ -70,6 +70,9 @@ export type PendingOrder = {
   created_offline_at: string;
   status: "queued" | "syncing" | "failed";
   error?: string;
+  // When the current sync attempt began — lets a later run tell an order
+  // that's genuinely mid-flight from one orphaned by a closed tab.
+  syncing_since?: number;
 };
 
 type SalesmanDb = Dexie & {

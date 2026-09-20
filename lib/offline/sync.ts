@@ -54,6 +54,11 @@ export async function queueOrder(input: {
 
 let syncInFlight = false;
 
+// A sync attempt that's been "syncing" this long was abandoned — the tab
+// was closed or the phone killed it mid-request. Without this, that order
+// would sit on "Syncing…" forever and never be sent.
+const STALE_SYNC_MS = 60_000;
+
 // Pushes every queued (or previously failed) order to the server, one at
 // a time, in the order they were taken. Safe to call opportunistically
 // (on reconnect, on an interval, right after queueing) — re-entrant calls
@@ -64,12 +69,23 @@ export async function syncPendingOrders(): Promise<void> {
 
   syncInFlight = true;
   try {
-    const queued = await db.pendingOrders
-      .toArray()
-      .then((all) => all.filter((o) => o.status === "queued" || o.status === "failed"));
+    const now = Date.now();
+    const queued = await db.pendingOrders.toArray().then((all) =>
+      all
+        .filter(
+          (o) =>
+            o.status === "queued" ||
+            o.status === "failed" ||
+            (o.status === "syncing" && now - (o.syncing_since ?? 0) > STALE_SYNC_MS),
+        )
+        .sort(
+          (a, b) =>
+            new Date(a.created_offline_at).getTime() - new Date(b.created_offline_at).getTime(),
+        ),
+    );
 
     for (const order of queued) {
-      await db.pendingOrders.update(order.id, { status: "syncing" });
+      await db.pendingOrders.update(order.id, { status: "syncing", syncing_since: Date.now() });
       try {
         const res = await fetch("/api/salesman/orders", {
           method: "POST",
@@ -89,7 +105,24 @@ export async function syncPendingOrders(): Promise<void> {
           throw new Error(body.error ?? "Sync failed.");
         }
 
-        await db.pendingOrders.delete(order.id);
+        const { orderId } = (await res.json().catch(() => ({}))) as { orderId?: string };
+
+        // Swap the pending row for the synced one in a single transaction
+        // so the order never disappears from the list between "sent" and
+        // "pulled back" — the full pull below then refines it.
+        await db.transaction("rw", [db.pendingOrders, db.orders], async () => {
+          if (orderId) {
+            await db.orders.put({
+              id: orderId,
+              status: "placed",
+              created_at: new Date().toISOString(),
+              client_id: order.client_id,
+              client_name: order.client_name,
+              total: order.items.reduce((sum, i) => sum + i.quantity * i.unit_price, 0),
+            });
+          }
+          await db.pendingOrders.delete(order.id);
+        });
       } catch (err) {
         await db.pendingOrders.update(order.id, {
           status: "failed",

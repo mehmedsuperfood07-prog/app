@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
@@ -22,7 +23,10 @@ export function roleHome(role: Role) {
   }
 }
 
-export async function getCurrentProfile(): Promise<Profile | null> {
+// Memoized per request: a page's layout and the page itself both need the
+// signed-in profile, and without this each would repeat the auth check
+// and profile query — two extra database round trips on every screen.
+export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -37,7 +41,7 @@ export async function getCurrentProfile(): Promise<Profile | null> {
     .single();
 
   return profile;
-}
+});
 
 // Server Component layout guard: redirects to /login if signed out, to the
 // user's own role home if signed in as the wrong role.
