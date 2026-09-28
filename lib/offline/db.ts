@@ -1,7 +1,7 @@
 "use client";
 
 import Dexie, { type EntityTable } from "dexie";
-import type { CustomerType } from "@/lib/constants";
+import type { ClientCategory, ClientSubtype } from "@/lib/constants";
 
 // Local-first cache for the salesman's client list, catalog, and order
 // history, plus the outbox of orders taken while offline. Dataset sizes
@@ -13,7 +13,8 @@ import type { CustomerType } from "@/lib/constants";
 export type CachedClient = {
   id: string;
   name: string;
-  customer_type: CustomerType;
+  client_category: ClientCategory;
+  client_subtype: ClientSubtype;
   address: string | null;
   phone: string | null;
   credit_limit: number;

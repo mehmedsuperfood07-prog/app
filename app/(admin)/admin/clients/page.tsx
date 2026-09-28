@@ -1,6 +1,5 @@
 import { ChevronDown, Plus } from "lucide-react";
-import { listClients, type ClientRecord } from "@/lib/clients";
-import { CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS } from "@/lib/constants";
+import { listClients, CLIENT_SUBTYPE_LABELS, type ClientRecord } from "@/lib/clients";
 import { listAreas } from "@/lib/areas";
 import { listActiveSalesmen } from "@/lib/staff";
 import { formatRs } from "@/lib/format";
@@ -10,6 +9,7 @@ import {
   toggleClientActiveAction,
 } from "@/lib/actions/clients";
 import { ActionForm } from "@/components/action-form";
+import { ClientTypeFields } from "@/components/client-type-fields";
 import { FilterableList } from "@/components/filterable-list";
 import { Field, SelectField } from "@/components/form-field";
 import { PageHeader } from "@/components/mobile/page-header";
@@ -32,8 +32,9 @@ export default async function ClientsPage() {
       c.name,
       c.area?.name,
       c.salesman?.full_name,
-      CUSTOMER_TYPE_LABELS[c.customer_type],
+      CLIENT_SUBTYPE_LABELS[c.client_subtype],
       c.phone,
+      c.contact_person_name,
     ]
       .filter(Boolean)
       .join(" "),
@@ -44,7 +45,7 @@ export default async function ClientsPage() {
     <div>
       <PageHeader
         title="Clients"
-        subtitle={`${clients.length} store${clients.length === 1 ? "" : "s"}, bakeries and distributors`}
+        subtitle={`${clients.length} client${clients.length === 1 ? "" : "s"} across retail, HORECA and corporate`}
       />
 
       <details className={`${detailsClasses} mb-4`}>
@@ -102,7 +103,8 @@ function ClientCard({
             {!c.active && <StatusPill tone="neutral">Inactive</StatusPill>}
           </div>
           <div className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
-            {CUSTOMER_TYPE_LABELS[c.customer_type]} · {c.area?.name ?? "No area"}
+            {CLIENT_SUBTYPE_LABELS[c.client_subtype] ?? "Uncategorized"} ·{" "}
+            {c.area?.name ?? "No area"}
           </div>
           {c.credit_limit > 0 && (
             <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
@@ -169,17 +171,10 @@ function ClientFields({
   return (
     <div className="space-y-3">
       <Field label="Name" name="name" defaultValue={client?.name} required />
-      <SelectField
-        label="Customer type"
-        name="customer_type"
-        defaultValue={client?.customer_type ?? "general_store"}
-      >
-        {CUSTOMER_TYPES.map((t) => (
-          <option key={t} value={t}>
-            {CUSTOMER_TYPE_LABELS[t]}
-          </option>
-        ))}
-      </SelectField>
+      <ClientTypeFields
+        defaultCategory={client?.client_category}
+        defaultSubtype={client?.client_subtype}
+      />
       <Field label="Address" name="address" defaultValue={client?.address ?? ""} />
       <div className="grid grid-cols-2 gap-3">
         <Field label="Phone" name="phone" defaultValue={client?.phone ?? ""} />
@@ -213,6 +208,32 @@ function ClientFields({
             </option>
           ))}
         </SelectField>
+      </div>
+
+      <div className="border-t border-zinc-100 pt-3 dark:border-zinc-800">
+        <p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+          Concerned person
+        </p>
+        <div className="space-y-3">
+          <Field
+            label="Contact name"
+            name="contact_person_name"
+            defaultValue={client?.contact_person_name ?? ""}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <Field
+              label="Designation"
+              name="contact_person_designation"
+              defaultValue={client?.contact_person_designation ?? ""}
+            />
+            <Field
+              label="Mobile number"
+              name="contact_person_phone"
+              type="tel"
+              defaultValue={client?.contact_person_phone ?? ""}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

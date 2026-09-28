@@ -11,6 +11,10 @@ export function dbErrorMessage(error: { message: string; code?: string }): strin
       return "You don't have permission to do that.";
     case "22P02":
       return "One of the values isn't in the right format.";
+    case "23502":
+      return "A required field is missing.";
+    case "23514":
+      return "One of the values isn't allowed there.";
     default:
       return error.message;
   }

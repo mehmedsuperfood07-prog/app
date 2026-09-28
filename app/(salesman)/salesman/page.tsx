@@ -7,7 +7,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { Search, Plus, MapPin, Phone, WifiOff, Users } from "lucide-react";
 import { db, type CachedClient } from "@/lib/offline/db";
 import { pullLatestData } from "@/lib/offline/sync";
-import { CUSTOMER_TYPE_LABELS } from "@/lib/constants";
+import { CLIENT_SUBTYPE_LABELS } from "@/lib/constants";
 import { formatRs } from "@/lib/format";
 import { useToast } from "@/components/toast";
 import { PageHeader } from "@/components/mobile/page-header";
@@ -146,7 +146,7 @@ export default function SalesmanHome() {
                     {c.name}
                   </p>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {CUSTOMER_TYPE_LABELS[c.customer_type]}
+                    {CLIENT_SUBTYPE_LABELS[c.client_subtype] ?? "Uncategorized"}
                   </p>
                 </div>
               </div>

@@ -1,16 +1,28 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { dbErrorMessage } from "@/lib/errors";
+import { isSubtypeInCategory } from "@/lib/constants";
 
-export { CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS, type CustomerType } from "@/lib/constants";
-import type { CustomerType } from "@/lib/constants";
+export {
+  CLIENT_CATEGORIES,
+  CLIENT_CATEGORY_LABELS,
+  CLIENT_SUBTYPES_BY_CATEGORY,
+  CLIENT_SUBTYPE_LABELS,
+  type ClientCategory,
+  type ClientSubtype,
+} from "@/lib/constants";
+import type { ClientCategory, ClientSubtype } from "@/lib/constants";
 
 export type ClientRecord = {
   id: string;
   name: string;
-  customer_type: CustomerType;
+  client_category: ClientCategory;
+  client_subtype: ClientSubtype;
   address: string | null;
   phone: string | null;
+  contact_person_name: string | null;
+  contact_person_designation: string | null;
+  contact_person_phone: string | null;
   credit_limit: number;
   current_balance: number;
   active: boolean;
@@ -20,22 +32,24 @@ export type ClientRecord = {
 
 export type ClientInput = {
   name: string;
-  customer_type: CustomerType;
+  client_category: ClientCategory;
+  client_subtype: ClientSubtype;
   address?: string | null;
   area_id?: string | null;
   phone?: string | null;
+  contact_person_name?: string | null;
+  contact_person_designation?: string | null;
+  contact_person_phone?: string | null;
   credit_limit: number;
   assigned_salesman_id?: string | null;
 };
 
+const CLIENT_COLUMNS =
+  "id, name, client_category, client_subtype, address, phone, contact_person_name, contact_person_designation, contact_person_phone, credit_limit, current_balance, active, area:areas(id, name), salesman:profiles(id, full_name)";
+
 export async function listClients(): Promise<ClientRecord[]> {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("clients")
-    .select(
-      "id, name, customer_type, address, phone, credit_limit, current_balance, active, area:areas(id, name), salesman:profiles(id, full_name)",
-    )
-    .order("name");
+  const { data } = await supabase.from("clients").select(CLIENT_COLUMNS).order("name");
   return (data ?? []) as unknown as ClientRecord[];
 }
 
@@ -52,10 +66,18 @@ async function requireAdminCaller() {
   }
 }
 
-function validateClient(input: { name: string; credit_limit: number }) {
+function validateClient(input: {
+  name: string;
+  credit_limit: number;
+  client_category: string;
+  client_subtype: string;
+}) {
   if (!input.name) throw new Error("Client name is required.");
   if (!Number.isFinite(input.credit_limit) || input.credit_limit < 0) {
     throw new Error("Credit limit must be a number, 0 or more.");
+  }
+  if (!isSubtypeInCategory(input.client_category, input.client_subtype)) {
+    throw new Error("Choose a valid client type.");
   }
 }
 
@@ -98,9 +120,7 @@ export async function listMyClients(filters: {
   const supabase = await createClient();
   let query = supabase
     .from("clients")
-    .select(
-      "id, name, customer_type, address, phone, credit_limit, current_balance, active, area:areas(id, name), salesman:profiles(id, full_name)",
-    )
+    .select(CLIENT_COLUMNS)
     .eq("active", true)
     .order("name");
 
@@ -113,10 +133,14 @@ export async function listMyClients(filters: {
 
 export type NewClientInput = {
   name: string;
-  customer_type: CustomerType;
+  client_category: ClientCategory;
+  client_subtype: ClientSubtype;
   address?: string | null;
   area_id?: string | null;
   phone?: string | null;
+  contact_person_name?: string | null;
+  contact_person_designation?: string | null;
+  contact_person_phone?: string | null;
   credit_limit: number;
 };
 

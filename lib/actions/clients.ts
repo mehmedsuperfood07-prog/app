@@ -15,12 +15,19 @@ import { ok, fail, type ActionResult } from "@/lib/actions/result";
 function parseClientInput(formData: FormData): ClientInput {
   return {
     name: String(formData.get("name") ?? "").trim(),
-    customer_type: String(
-      formData.get("customer_type") ?? "general_store",
-    ) as ClientInput["customer_type"],
+    client_category: String(
+      formData.get("client_category") ?? "retailer",
+    ) as ClientInput["client_category"],
+    client_subtype: String(
+      formData.get("client_subtype") ?? "",
+    ) as ClientInput["client_subtype"],
     address: String(formData.get("address") ?? "").trim() || null,
     area_id: String(formData.get("area_id") ?? "") || null,
     phone: String(formData.get("phone") ?? "").trim() || null,
+    contact_person_name: String(formData.get("contact_person_name") ?? "").trim() || null,
+    contact_person_designation:
+      String(formData.get("contact_person_designation") ?? "").trim() || null,
+    contact_person_phone: String(formData.get("contact_person_phone") ?? "").trim() || null,
     credit_limit: Number(formData.get("credit_limit") ?? 0),
     assigned_salesman_id: String(formData.get("assigned_salesman_id") ?? "") || null,
   };
@@ -68,12 +75,19 @@ export async function toggleClientActiveAction(formData: FormData): Promise<Acti
 function parseNewClientInput(formData: FormData): NewClientInput {
   return {
     name: String(formData.get("name") ?? "").trim(),
-    customer_type: String(
-      formData.get("customer_type") ?? "general_store",
-    ) as NewClientInput["customer_type"],
+    client_category: String(
+      formData.get("client_category") ?? "retailer",
+    ) as NewClientInput["client_category"],
+    client_subtype: String(
+      formData.get("client_subtype") ?? "",
+    ) as NewClientInput["client_subtype"],
     address: String(formData.get("address") ?? "").trim() || null,
     area_id: String(formData.get("area_id") ?? "") || null,
     phone: String(formData.get("phone") ?? "").trim() || null,
+    contact_person_name: String(formData.get("contact_person_name") ?? "").trim() || null,
+    contact_person_designation:
+      String(formData.get("contact_person_designation") ?? "").trim() || null,
+    contact_person_phone: String(formData.get("contact_person_phone") ?? "").trim() || null,
     credit_limit: Number(formData.get("credit_limit") ?? 0),
   };
 }

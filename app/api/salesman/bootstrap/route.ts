@@ -24,7 +24,7 @@ export async function GET() {
     supabase
       .from("clients")
       .select(
-        "id, name, customer_type, address, phone, credit_limit, current_balance, active, area:areas(id, name)",
+        "id, name, client_category, client_subtype, address, phone, credit_limit, current_balance, active, area:areas(id, name)",
       )
       .order("name"),
     supabase
@@ -45,7 +45,8 @@ export async function GET() {
   type ClientRow = {
     id: string;
     name: string;
-    customer_type: string;
+    client_category: string;
+    client_subtype: string;
     address: string | null;
     phone: string | null;
     credit_limit: number;
@@ -65,7 +66,8 @@ export async function GET() {
     clients: ((clients ?? []) as unknown as ClientRow[]).map((c) => ({
       id: c.id,
       name: c.name,
-      customer_type: c.customer_type,
+      client_category: c.client_category,
+      client_subtype: c.client_subtype,
       address: c.address,
       phone: c.phone,
       credit_limit: c.credit_limit,
