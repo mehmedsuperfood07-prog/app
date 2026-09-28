@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { dbErrorMessage } from "@/lib/errors";
 import { isSubtypeInCategory } from "@/lib/constants";
+import type { PaymentTerm } from "@/components/payment-term-fields";
 
 export {
   CLIENT_CATEGORIES,
@@ -23,6 +24,7 @@ export type ClientRecord = {
   contact_person_name: string | null;
   contact_person_designation: string | null;
   contact_person_phone: string | null;
+  payment_term: PaymentTerm;
   credit_limit: number;
   current_balance: number;
   active: boolean;
@@ -40,12 +42,13 @@ export type ClientInput = {
   contact_person_name?: string | null;
   contact_person_designation?: string | null;
   contact_person_phone?: string | null;
+  payment_term: PaymentTerm;
   credit_limit: number;
   assigned_salesman_id?: string | null;
 };
 
 const CLIENT_COLUMNS =
-  "id, name, client_category, client_subtype, address, phone, contact_person_name, contact_person_designation, contact_person_phone, credit_limit, current_balance, active, area:areas(id, name), salesman:profiles(id, full_name)";
+  "id, name, client_category, client_subtype, address, phone, contact_person_name, contact_person_designation, contact_person_phone, payment_term, credit_limit, current_balance, active, area:areas(id, name), salesman:profiles(id, full_name)";
 
 export async function listClients(): Promise<ClientRecord[]> {
   const supabase = await createClient();
@@ -71,6 +74,7 @@ function validateClient(input: {
   credit_limit: number;
   client_category: string;
   client_subtype: string;
+  payment_term: string;
 }) {
   if (!input.name) throw new Error("Client name is required.");
   if (!Number.isFinite(input.credit_limit) || input.credit_limit < 0) {
@@ -79,6 +83,18 @@ function validateClient(input: {
   if (!isSubtypeInCategory(input.client_category, input.client_subtype)) {
     throw new Error("Choose a valid client type.");
   }
+  if (input.payment_term !== "cash" && input.payment_term !== "credit") {
+    throw new Error("Choose a valid payment term.");
+  }
+}
+
+// A cash client never carries a credit limit, no matter what a request
+// says — the UI already hides the field for "cash", this just makes sure
+// a direct/tampered request can't set one behind the scenes either.
+function normalizePaymentTerm<T extends { payment_term: PaymentTerm; credit_limit: number }>(
+  input: T,
+): T {
+  return input.payment_term === "cash" ? { ...input, credit_limit: 0 } : input;
 }
 
 export async function createClientRecord(input: ClientInput) {
@@ -86,7 +102,7 @@ export async function createClientRecord(input: ClientInput) {
   await requireAdminCaller();
 
   const supabase = await createClient();
-  const { error } = await supabase.from("clients").insert(input);
+  const { error } = await supabase.from("clients").insert(normalizePaymentTerm(input));
   if (error) throw new Error(dbErrorMessage(error));
 }
 
@@ -95,7 +111,10 @@ export async function updateClientRecord(id: string, input: ClientInput) {
   await requireAdminCaller();
 
   const supabase = await createClient();
-  const { error } = await supabase.from("clients").update(input).eq("id", id);
+  const { error } = await supabase
+    .from("clients")
+    .update(normalizePaymentTerm(input))
+    .eq("id", id);
   if (error) throw new Error(dbErrorMessage(error));
 }
 
@@ -141,6 +160,7 @@ export type NewClientInput = {
   contact_person_name?: string | null;
   contact_person_designation?: string | null;
   contact_person_phone?: string | null;
+  payment_term: PaymentTerm;
   credit_limit: number;
 };
 
@@ -155,6 +175,6 @@ export async function createMyClient(input: NewClientInput) {
 
   const { error } = await supabase
     .from("clients")
-    .insert({ ...input, assigned_salesman_id: user.id });
+    .insert({ ...normalizePaymentTerm(input), assigned_salesman_id: user.id });
   if (error) throw new Error(dbErrorMessage(error));
 }

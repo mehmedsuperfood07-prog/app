@@ -2,6 +2,7 @@ import { listMyAreas } from "@/lib/areas";
 import { createMyClientAction } from "@/lib/actions/clients";
 import { ActionForm } from "@/components/action-form";
 import { ClientTypeFields } from "@/components/client-type-fields";
+import { PaymentTermFields } from "@/components/payment-term-fields";
 import { Field, SelectField } from "@/components/form-field";
 import { PageHeader } from "@/components/mobile/page-header";
 import { SubmitButton } from "@/components/mobile/submit-button";
@@ -32,14 +33,7 @@ export default async function NewClientPage() {
             </option>
           ))}
         </SelectField>
-        <Field
-          label="Credit limit (Rs)"
-          name="credit_limit"
-          type="number"
-          step="0.01"
-          defaultValue="0"
-          required
-        />
+        <PaymentTermFields />
 
         <div className="border-t border-zinc-200 pt-3.5 dark:border-zinc-800">
           <p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-zinc-400">

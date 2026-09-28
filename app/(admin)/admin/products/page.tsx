@@ -8,6 +8,7 @@ import {
   toggleProductActiveAction,
 } from "@/lib/actions/products";
 import { ActionForm } from "@/components/action-form";
+import { PackSizeField } from "@/components/pack-size-field";
 import { Field, SelectField } from "@/components/form-field";
 import { PageHeader } from "@/components/mobile/page-header";
 import { ProductIcon } from "@/components/mobile/product-icon";
@@ -123,13 +124,7 @@ function ProductFields({
             </option>
           ))}
         </SelectField>
-        <Field
-          label="Pack size"
-          name="pack_size"
-          defaultValue={product?.pack_size}
-          placeholder="e.g. 5 kg"
-          required
-        />
+        <PackSizeField defaultValue={product?.pack_size} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Field

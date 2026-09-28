@@ -47,20 +47,19 @@ export async function listProductsWithPricingForClient(
 export type OrderLineInput = {
   product_id: string;
   quantity: number;
+  unit_price: number;
 };
 
 const MAX_LINE_QUANTITY = 100_000;
 
-// Prices are always looked up here from the catalog/override tables at
-// submit time — never taken from the client request — so a salesman can
-// never place an order at a price they typed or tampered with in the form.
-// This also holds for orders queued offline (see lib/offline/sync.ts):
-// the price locked into order_items is always whatever the catalog says
-// at the moment the order actually reaches the server, not whatever was
-// cached on the device when the salesman built the order. That can
-// occasionally surprise a salesman if a price changed while they were
-// offline, but it's the same trust boundary as the online path, and
-// correct trumps a cached number nobody can vouch for.
+// unit_price comes from the salesman now, not the catalog — on-the-spot
+// discounts are a normal part of how this business sells, so whatever
+// the salesman enters at order time (typically less than the catalog/
+// override price, but never forced to be) is what actually gets charged.
+// What's still never trusted from the client is which PRODUCT is being
+// sold: every product_id below is checked against the real, active
+// catalog for this client, so a tampered/unknown id can't slip through
+// even though the price itself now can be anything non-negative.
 //
 // createdOfflineAt, when set, records that this order was actually built
 // on the device at that earlier time even though it's only reaching the
@@ -71,7 +70,12 @@ export async function createOrder(
   createdOfflineAt?: string,
 ) {
   const lineItems = items.filter(
-    (i) => Number.isFinite(i.quantity) && i.quantity > 0 && i.quantity <= MAX_LINE_QUANTITY,
+    (i) =>
+      Number.isFinite(i.quantity) &&
+      i.quantity > 0 &&
+      i.quantity <= MAX_LINE_QUANTITY &&
+      Number.isFinite(i.unit_price) &&
+      i.unit_price >= 0,
   );
   if (lineItems.length === 0) {
     throw new Error("Add at least one product with a quantity.");
@@ -99,11 +103,11 @@ export async function createOrder(
     if (existing && existing.length > 0) return existing[0].id as string;
   }
 
-  const priced = await listProductsWithPricingForClient(clientId);
-  const priceMap = new Map(priced.map((p) => [p.id, p.price]));
+  const validProducts = await listProductsWithPricingForClient(clientId);
+  const validIds = new Set(validProducts.map((p) => p.id));
 
   for (const item of lineItems) {
-    if (!priceMap.has(item.product_id)) {
+    if (!validIds.has(item.product_id)) {
       throw new Error("One of the selected products is no longer available.");
     }
   }
@@ -118,7 +122,7 @@ export async function createOrder(
     p_items: lineItems.map((i) => ({
       product_id: i.product_id,
       quantity: i.quantity,
-      unit_price: priceMap.get(i.product_id)!,
+      unit_price: i.unit_price,
     })),
     p_created_offline_at: createdOfflineAt ?? null,
   });
@@ -127,10 +131,7 @@ export async function createOrder(
     throw new Error(rpcError?.message ?? "Could not create order.");
   }
 
-  const total = lineItems.reduce(
-    (sum, i) => sum + i.quantity * priceMap.get(i.product_id)!,
-    0,
-  );
+  const total = lineItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
 
   // Sent after the response goes back, so the salesman's order confirms
   // immediately instead of waiting on the push services.

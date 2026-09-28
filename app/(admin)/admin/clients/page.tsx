@@ -10,6 +10,7 @@ import {
 } from "@/lib/actions/clients";
 import { ActionForm } from "@/components/action-form";
 import { ClientTypeFields } from "@/components/client-type-fields";
+import { PaymentTermFields } from "@/components/payment-term-fields";
 import { FilterableList } from "@/components/filterable-list";
 import { Field, SelectField } from "@/components/form-field";
 import { PageHeader } from "@/components/mobile/page-header";
@@ -187,28 +188,22 @@ function ClientFields({
           ))}
         </SelectField>
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <Field
-          label="Credit limit (Rs)"
-          name="credit_limit"
-          type="number"
-          step="0.01"
-          defaultValue={client?.credit_limit?.toString() ?? "0"}
-          required
-        />
-        <SelectField
-          label="Salesman"
-          name="assigned_salesman_id"
-          defaultValue={client?.salesman?.id ?? ""}
-        >
-          <option value="">Unassigned</option>
-          {salesmanOptions.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.full_name}
-            </option>
-          ))}
-        </SelectField>
-      </div>
+      <PaymentTermFields
+        defaultPaymentTerm={client?.payment_term}
+        defaultCreditLimit={client?.credit_limit}
+      />
+      <SelectField
+        label="Salesman"
+        name="assigned_salesman_id"
+        defaultValue={client?.salesman?.id ?? ""}
+      >
+        <option value="">Unassigned</option>
+        {salesmanOptions.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.full_name}
+          </option>
+        ))}
+      </SelectField>
 
       <div className="border-t border-zinc-100 pt-3 dark:border-zinc-800">
         <p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-zinc-400">

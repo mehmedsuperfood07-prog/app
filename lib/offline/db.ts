@@ -60,9 +60,10 @@ export type PendingOrderItem = {
 };
 
 // An order taken offline (or while online — the flow is identical),
-// queued locally until it can be pushed to the server. unit_price here
-// is for display only; the server always recomputes the real price at
-// sync time (see lib/orders.ts).
+// queued locally until it can be pushed to the server. unit_price is
+// whatever the salesman actually entered for that line (the default is
+// the catalog/override price, but it's editable for on-the-spot
+// discounts) — it's sent to the server as-is, not recomputed there.
 export type PendingOrder = {
   id: string;
   client_id: string;

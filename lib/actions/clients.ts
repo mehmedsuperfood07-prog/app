@@ -28,6 +28,7 @@ function parseClientInput(formData: FormData): ClientInput {
     contact_person_designation:
       String(formData.get("contact_person_designation") ?? "").trim() || null,
     contact_person_phone: String(formData.get("contact_person_phone") ?? "").trim() || null,
+    payment_term: String(formData.get("payment_term") ?? "cash") as ClientInput["payment_term"],
     credit_limit: Number(formData.get("credit_limit") ?? 0),
     assigned_salesman_id: String(formData.get("assigned_salesman_id") ?? "") || null,
   };
@@ -88,6 +89,7 @@ function parseNewClientInput(formData: FormData): NewClientInput {
     contact_person_designation:
       String(formData.get("contact_person_designation") ?? "").trim() || null,
     contact_person_phone: String(formData.get("contact_person_phone") ?? "").trim() || null,
+    payment_term: String(formData.get("payment_term") ?? "cash") as NewClientInput["payment_term"],
     credit_limit: Number(formData.get("credit_limit") ?? 0),
   };
 }

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Minus, Plus, Search, TriangleAlert, MapPin } from "lucide-react";
-import { db, type CachedPriceOverride } from "@/lib/offline/db";
+import { db, type CachedPriceOverride, type CachedProduct } from "@/lib/offline/db";
 import { pullLatestData, queueOrder } from "@/lib/offline/sync";
 import { effectivePrice } from "@/lib/offline/pricing";
 import { formatRs } from "@/lib/format";
@@ -23,6 +23,7 @@ export default function NewOrderPage() {
   const { show } = useToast();
 
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [prices, setPrices] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState("");
@@ -120,9 +121,10 @@ export default function NewOrderPage() {
   }
 
   const activeProducts = products.filter((p) => p.active).sort((a, b) => a.name.localeCompare(b.name));
+  const priceFor = (p: CachedProduct) => prices[p.id] ?? effectivePrice(p, clientId, overrides);
   const totalQty = Object.values(quantities).reduce((s, q) => s + q, 0);
   const totalRs = activeProducts.reduce(
-    (sum, p) => sum + (quantities[p.id] ?? 0) * effectivePrice(p, clientId, overrides),
+    (sum, p) => sum + (quantities[p.id] ?? 0) * priceFor(p),
     0,
   );
 
@@ -135,6 +137,10 @@ export default function NewOrderPage() {
     setQuantities((q) => ({ ...q, [productId]: Math.max(0, Math.min(100000, Math.floor(qty))) }));
   }
 
+  function setPrice(productId: string, value: number) {
+    setPrices((p) => ({ ...p, [productId]: Math.max(0, value) }));
+  }
+
   async function handleSubmit() {
     // A ref, not the `submitting` state: two taps in the same instant both
     // see the state as false, because React hasn't re-rendered yet.
@@ -145,7 +151,7 @@ export default function NewOrderPage() {
         product_id: p.id,
         product_name: p.name,
         quantity: quantities[p.id] ?? 0,
-        unit_price: effectivePrice(p, clientId!, overrides),
+        unit_price: priceFor(p),
       }))
       .filter((i) => i.quantity > 0);
 
@@ -214,62 +220,94 @@ export default function NewOrderPage() {
       ) : (
         <div className="space-y-2.5 pb-24">
           {activeProducts.map((p) => {
-            const price = effectivePrice(p, clientId, overrides);
+            const listPrice = effectivePrice(p, clientId, overrides);
+            const price = priceFor(p);
+            const discounted = price !== listPrice;
             const qty = quantities[p.id] ?? 0;
             return (
               <div
                 key={p.id}
-                className={`flex items-center gap-3 rounded-2xl border bg-surface p-3.5 shadow-sm transition-colors ${
+                className={`rounded-2xl border bg-surface p-3.5 shadow-sm transition-colors ${
                   qty > 0
                     ? "border-accent/40 bg-accent/5"
                     : "border-zinc-200/80 dark:border-zinc-800"
                 }`}
               >
-                <ProductIcon name={p.name} unit={p.unit} />
-                <div className="min-w-0 flex-1 text-sm">
-                  <div className="font-semibold leading-snug text-zinc-900 dark:text-zinc-50">
-                    {p.name}
-                    {p.variant ? ` — ${p.variant}` : ""}
-                  </div>
-                  <div className="text-zinc-500 dark:text-zinc-400">
-                    {p.pack_size} {p.unit} · {formatRs(price)}
-                  </div>
-                  {qty > 0 && (
-                    <div className="text-xs font-semibold text-accent">
-                      {formatRs(qty * price)}
+                <div className="flex items-center gap-3">
+                  <ProductIcon name={p.name} unit={p.unit} />
+                  <div className="min-w-0 flex-1 text-sm">
+                    <div className="font-semibold leading-snug text-zinc-900 dark:text-zinc-50">
+                      {p.name}
+                      {p.variant ? ` — ${p.variant}` : ""}
                     </div>
-                  )}
+                    <div className="text-zinc-500 dark:text-zinc-400">
+                      {p.pack_size} {p.unit} · list {formatRs(listPrice)}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setQty(p.id, qty - 1)}
+                      disabled={qty === 0}
+                      aria-label={`Remove one ${p.name}`}
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 transition active:scale-90 active:bg-zinc-200 disabled:opacity-40 dark:bg-zinc-800 dark:text-zinc-300"
+                    >
+                      <Minus size={16} />
+                    </button>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min="0"
+                      step="1"
+                      value={qty}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => setQty(p.id, Number(e.target.value) || 0)}
+                      aria-label={`Quantity of ${p.name}`}
+                      className="w-11 rounded-md border-0 bg-transparent text-center text-sm font-semibold"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setQty(p.id, qty + 1)}
+                      aria-label={`Add one ${p.name}`}
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-foreground transition active:scale-90 active:bg-accent/90"
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setQty(p.id, qty - 1)}
-                    disabled={qty === 0}
-                    aria-label={`Remove one ${p.name}`}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 transition active:scale-90 active:bg-zinc-200 disabled:opacity-40 dark:bg-zinc-800 dark:text-zinc-300"
-                  >
-                    <Minus size={16} />
-                  </button>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min="0"
-                    step="1"
-                    value={qty}
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) => setQty(p.id, Number(e.target.value) || 0)}
-                    aria-label={`Quantity of ${p.name}`}
-                    className="w-11 rounded-md border-0 bg-transparent text-center text-sm font-semibold"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setQty(p.id, qty + 1)}
-                    aria-label={`Add one ${p.name}`}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-foreground transition active:scale-90 active:bg-accent/90"
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
+                {qty > 0 && (
+                  <div className="mt-3 flex items-center justify-between gap-3 border-t border-zinc-100 pt-2.5 dark:border-zinc-800">
+                    <label className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                      Rate
+                      <span className="relative">
+                        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400">
+                          Rs
+                        </span>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          min="0"
+                          step="0.01"
+                          value={price}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => setPrice(p.id, Number(e.target.value) || 0)}
+                          aria-label={`Rate for ${p.name}`}
+                          className={`w-24 rounded-lg border bg-surface py-1.5 pl-7 pr-2 text-sm font-semibold ${
+                            discounted
+                              ? "border-accent text-accent"
+                              : "border-zinc-300 text-zinc-900 dark:border-zinc-700 dark:text-zinc-50"
+                          }`}
+                        />
+                      </span>
+                      {discounted && (
+                        <span className="text-[11px] font-semibold text-accent">Discounted</span>
+                      )}
+                    </label>
+                    <span className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
+                      {formatRs(qty * price)}
+                    </span>
+                  </div>
+                )}
               </div>
             );
           })}

@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { createOrder, type OrderLineInput } from "@/lib/orders";
 
 // Pushes one queued order from a salesman's local outbox (lib/offline/sync.ts).
-// Only ever receives product_id/quantity pairs — never a price — so the
-// same tamper-proofing as the online order form applies here too.
+// unit_price travels with each line — see lib/orders.ts for why that's
+// trusted now (on-the-spot discounts) while product_id still isn't.
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   if (!body || typeof body.client_id !== "string" || !Array.isArray(body.items)) {
@@ -12,15 +12,17 @@ export async function POST(request: Request) {
 
   const items: OrderLineInput[] = body.items
     .filter(
-      (i: unknown): i is { product_id: string; quantity: number } =>
+      (i: unknown): i is { product_id: string; quantity: number; unit_price: number } =>
         typeof i === "object" &&
         i !== null &&
         typeof (i as { product_id?: unknown }).product_id === "string" &&
-        typeof (i as { quantity?: unknown }).quantity === "number",
+        typeof (i as { quantity?: unknown }).quantity === "number" &&
+        typeof (i as { unit_price?: unknown }).unit_price === "number",
     )
-    .map((i: { product_id: string; quantity: number }) => ({
+    .map((i: { product_id: string; quantity: number; unit_price: number }) => ({
       product_id: i.product_id,
       quantity: i.quantity,
+      unit_price: i.unit_price,
     }));
 
   const createdOfflineAt =

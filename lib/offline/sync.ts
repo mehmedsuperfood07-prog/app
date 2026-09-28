@@ -95,6 +95,7 @@ export async function syncPendingOrders(): Promise<void> {
             items: order.items.map((i) => ({
               product_id: i.product_id,
               quantity: i.quantity,
+              unit_price: i.unit_price,
             })),
             created_offline_at: order.created_offline_at,
           }),
