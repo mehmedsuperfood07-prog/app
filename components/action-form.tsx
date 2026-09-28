@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useRef, useTransition } from "react";
+import { unstable_rethrow } from "next/navigation";
 import { useToast } from "@/components/toast";
 import type { ActionResult } from "@/lib/actions/result";
 
@@ -55,7 +56,13 @@ export function ActionForm({
         } else {
           show(result.error, "error");
         }
-      } catch {
+      } catch (err) {
+        // A Server Action that calls redirect()/notFound() (like
+        // createMyClientAction on success) makes Next throw a special
+        // internal signal to perform the navigation — rethrow it
+        // untouched so that still works, instead of reporting it here
+        // as a failed request.
+        unstable_rethrow(err);
         show("Couldn't reach the server. Check your connection and try again.", "error");
       } finally {
         inFlight.current = false;
