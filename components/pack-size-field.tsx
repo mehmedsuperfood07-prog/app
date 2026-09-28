@@ -5,15 +5,24 @@ import { useState } from "react";
 const inputClasses =
   "w-full rounded-xl border border-zinc-300 bg-surface px-3.5 py-2.5 text-sm dark:border-zinc-700";
 
-const PACK_SIZE_PRESETS = ["1 kg", "2 kg", "5 kg"];
+// pack_size stores just the number ("10", not "10 kg") — the existing
+// catalog already works this way (Mehmed Rice is pack_size "10" + unit
+// "kg", displayed together as "10 kg"), so the "kg" in each label here
+// is presentation only; the value submitted is the bare number, matching
+// the adjacent Unit field ("kg" by default) rather than duplicating it.
+const PACK_SIZE_PRESETS = [
+  { value: "1", label: "1 kg" },
+  { value: "2", label: "2 kg" },
+  { value: "5", label: "5 kg" },
+];
 
 // A plain <select> covers the standard flour/atta pack sizes the
 // business actually wants to standardize on; "Custom size" drops back
 // to free text for anything that isn't a kg pack — the juice bottles
-// ("1 L bottle") and the 10 kg rice bag already in the catalog need it,
-// and it keeps the door open for whatever comes next.
+// ("1 L" + unit "bottle") and the 10 kg rice bag already in the catalog
+// need it, and it keeps the door open for whatever comes next.
 export function PackSizeField({ defaultValue }: { defaultValue?: string }) {
-  const isPreset = !defaultValue || PACK_SIZE_PRESETS.includes(defaultValue);
+  const isPreset = !defaultValue || PACK_SIZE_PRESETS.some((p) => p.value === defaultValue);
   const [custom, setCustom] = useState(!isPreset);
 
   return (
@@ -32,19 +41,19 @@ export function PackSizeField({ defaultValue }: { defaultValue?: string }) {
         <input
           name="pack_size"
           defaultValue={defaultValue}
-          placeholder="e.g. 1 L bottle"
+          placeholder="e.g. 1 L"
           required
           className={inputClasses}
         />
       ) : (
         <select
           name="pack_size"
-          defaultValue={isPreset && defaultValue ? defaultValue : PACK_SIZE_PRESETS[0]}
+          defaultValue={isPreset && defaultValue ? defaultValue : PACK_SIZE_PRESETS[0].value}
           className={inputClasses}
         >
           {PACK_SIZE_PRESETS.map((p) => (
-            <option key={p} value={p}>
-              {p}
+            <option key={p.value} value={p.value}>
+              {p.label}
             </option>
           ))}
         </select>
