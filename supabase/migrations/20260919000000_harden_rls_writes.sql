@@ -1,14 +1,24 @@
 -- Security hardening: RLS enforces row ownership but not column- or
--- value-level integrity. Three gaps found in review, each closed with a
+-- value-level integrity. Two gaps found in review, each closed with a
 -- trigger so the database — not just the app — is the backstop, per
 -- CLAUDE.md section 3 ("Row-level security enforces the role table above
 -- at the database level, not just in the UI").
 --
--- All three triggers let admin (public.is_admin()) and the service-role
+-- Both triggers let admin (public.is_admin()) and the service-role
 -- client (auth.role() = 'service_role', used by increment_client_balance,
 -- createInvoiceForOrder, etc.) through unconditionally — they only
 -- constrain what a signed-in salesman/rider can do to a row RLS already
 -- lets them reach.
+--
+-- A third trigger originally lived here — order_items_enforce_price,
+-- re-deriving unit_price_at_order_time from the catalog on every insert
+-- so a raw request couldn't set an arbitrary price. It was removed
+-- before this migration was ever applied: the business later asked for
+-- exactly that ability (on-the-spot discounts at order time, see
+-- lib/orders.ts createOrder), so re-deriving the price server-side would
+-- have silently overwritten every discount back to list price. If price
+-- integrity needs revisiting, it has to account for legitimate salesman
+-- discounts, not just reject them.
 
 -- ============================================================
 -- 1. clients: a salesman may still set credit_limit when creating their
@@ -45,53 +55,7 @@ create trigger clients_restrict_privileged_fields
   for each row execute function public.enforce_client_update_restrictions();
 
 -- ============================================================
--- 2. order_items: unit_price_at_order_time must always be the price the
---    catalog/price_overrides actually say for that client+product at
---    insert time — never whatever value the request happened to carry.
---    This mirrors exactly what create_order_with_items already does; the
---    trigger just makes it impossible to bypass via a direct insert.
--- ============================================================
-
-create or replace function public.enforce_order_item_price()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_client_id uuid;
-  v_price numeric(12, 2);
-begin
-  if auth.role() = 'service_role' then
-    return new;
-  end if;
-
-  select client_id into v_client_id from public.orders where id = new.order_id;
-  if v_client_id is null then
-    raise exception 'Order not found.';
-  end if;
-
-  select coalesce(
-    (select special_price from public.price_overrides
-       where client_id = v_client_id and product_id = new.product_id),
-    (select default_price from public.products where id = new.product_id)
-  ) into v_price;
-
-  if v_price is null then
-    raise exception 'Unknown or inactive product for this order.';
-  end if;
-
-  new.unit_price_at_order_time := v_price;
-  return new;
-end;
-$$;
-
-create trigger order_items_enforce_price
-  before insert on public.order_items
-  for each row execute function public.enforce_order_item_price();
-
--- ============================================================
--- 3. orders / deliveries: a rider may only ever perform the exact
+-- 2. orders / deliveries: a rider may only ever perform the exact
 --    transitions the app's own delivery flow performs (advanceDelivery in
 --    lib/deliveries.ts) — never skip a step, never touch any other
 --    column. This backstops the state machine that today lives only in
