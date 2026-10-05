@@ -58,7 +58,7 @@ export default function OrdersPage() {
       />
 
       <div className="space-y-2.5">
-        {loading && [0, 1, 2].map((i) => <Skeleton key={i} className="h-[76px] rounded-2xl" />)}
+        {loading && [0, 1, 2].map((i) => <Skeleton key={i} className="h-19 rounded-2xl" />)}
 
         {!loading && pendingRows.length === 0 && syncedRows.length === 0 && (
           <div className="flex flex-col items-center py-12 text-center">

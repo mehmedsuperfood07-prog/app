@@ -31,7 +31,7 @@ export function StepTracker({ status }: { status: string }) {
               />
             )}
             <span
-              className={`relative z-10 flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ${
+              className={`relative z-10 flex h-6 w-6 items-center justify-center rounded-full text-[0.6875rem] font-bold ${
                 done
                   ? "bg-accent text-accent-foreground"
                   : active
@@ -42,7 +42,7 @@ export function StepTracker({ status }: { status: string }) {
               {done ? <Check size={13} strokeWidth={3} /> : i + 1}
             </span>
             <span
-              className={`mt-1.5 text-center text-[11px] leading-tight ${
+              className={`mt-1.5 text-center text-[0.6875rem] leading-tight ${
                 done || active
                   ? "font-semibold text-zinc-900 dark:text-zinc-50"
                   : "text-zinc-400 dark:text-zinc-500"

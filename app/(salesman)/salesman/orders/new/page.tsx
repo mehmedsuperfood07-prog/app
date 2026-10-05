@@ -73,7 +73,7 @@ export default function NewOrderPage() {
           />
         </div>
         <div className="space-y-2.5">
-          {loading && [0, 1, 2].map((i) => <Skeleton key={i} className="h-[68px] rounded-2xl" />)}
+          {loading && [0, 1, 2].map((i) => <Skeleton key={i} className="h-17 rounded-2xl" />)}
           {!loading && sorted.length === 0 && (
             <p className="py-8 text-center text-sm text-zinc-500">
               {clients.length === 0
@@ -109,8 +109,8 @@ export default function NewOrderPage() {
       <div className="space-y-3 py-4">
         <Skeleton className="h-6 w-48" />
         <Skeleton className="h-4 w-64" />
-        <Skeleton className="h-[72px] rounded-2xl" />
-        <Skeleton className="h-[72px] rounded-2xl" />
+        <Skeleton className="h-18 rounded-2xl" />
+        <Skeleton className="h-18 rounded-2xl" />
         {pulled && (
           <p className="pt-2 text-center text-sm text-zinc-500">
             Couldn&apos;t find this client. Connect once to sync your client list.
@@ -300,7 +300,7 @@ export default function NewOrderPage() {
                         />
                       </span>
                       {discounted && (
-                        <span className="text-[11px] font-semibold text-accent">Discounted</span>
+                        <span className="text-[0.6875rem] font-semibold text-accent">Discounted</span>
                       )}
                     </label>
                     <span className="text-sm font-bold text-zinc-900 dark:text-zinc-50">

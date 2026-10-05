@@ -126,7 +126,7 @@ export default async function AdminOrderDetailPage({
                   Client balance
                 </p>
                 {overLimit && (
-                  <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-[10px] font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900">
+                  <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-[0.625rem] font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900">
                     Over limit
                   </span>
                 )}
@@ -192,10 +192,10 @@ export default async function AdminOrderDetailPage({
                   return (
                     <li key={i} className="relative flex gap-3 pb-4 last:pb-0">
                       {!last && (
-                        <span className="absolute left-[5px] top-4 h-full w-px bg-zinc-200 dark:bg-zinc-800" />
+                        <span className="absolute left-[0.3125rem] top-4 h-full w-px bg-zinc-200 dark:bg-zinc-800" />
                       )}
                       <span
-                        className={`relative mt-1 h-[11px] w-[11px] shrink-0 rounded-full ${
+                        className={`relative mt-1 h-[0.6875rem] w-[0.6875rem] shrink-0 rounded-full ${
                           last ? "bg-accent" : "bg-accent-soft ring-2 ring-accent/30"
                         }`}
                       />

@@ -86,7 +86,7 @@ function StaffCard({ member: s, isMe }: { member: StaffMember; isMe: boolean }) 
             <span className="truncate font-semibold text-zinc-900 dark:text-zinc-50">
               {s.full_name}
             </span>
-            {isMe && <span className="text-[11px] font-medium text-zinc-400">(you)</span>}
+            {isMe && <span className="text-[0.6875rem] font-medium text-zinc-400">(you)</span>}
           </div>
           <div className="text-xs capitalize text-zinc-500 dark:text-zinc-400">
             {s.role}

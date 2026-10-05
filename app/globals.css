@@ -58,6 +58,26 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* A phone that shows the site at a desktop width (Chrome's "Desktop site" mode,
+   or any browser that ignores the viewport tag) lays the page out ~980px wide and
+   shrinks it to fit the screen, so everything ends up tiny. Sizes are in rem, so
+   scaling the root font size brings the normal phone look back: 1rem = 16px on a
+   360px-wide layout. It only matches when the screen is phone-sized but the
+   viewport isn't, which normal phones, tablets and desktops never are, and stops
+   below lg (1024px) where the admin area switches to its sidebar layout. */
+@media (max-device-width: 600px) and (min-width: 700px) and (max-width: 1023px) {
+  html {
+    font-size: 4.4444vw;
+  }
+
+  /* Icons carry their size as a px width/height attribute, so convert it to rem
+     to keep them in proportion. Browsers too old for typed attr() ignore this. */
+  svg.lucide {
+    width: calc(attr(width type(<number>)) * 0.0625rem);
+    height: calc(attr(height type(<number>)) * 0.0625rem);
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -161,7 +181,7 @@ button {
 input,
 select,
 textarea {
-  font-size: 16px;
+  font-size: 1rem;
 }
 
 ::-webkit-scrollbar {

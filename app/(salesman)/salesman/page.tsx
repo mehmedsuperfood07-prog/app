@@ -117,7 +117,7 @@ export default function SalesmanHome() {
 
       <div className="space-y-2.5">
         {loading &&
-          [0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[104px] rounded-2xl" />)}
+          [0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-26 rounded-2xl" />)}
 
         {!loading && clients.length === 0 && syncState === "failed" && (
           <EmptyState
@@ -157,7 +157,7 @@ export default function SalesmanHome() {
                 <p className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
                   {formatRs(c.current_balance)}
                 </p>
-                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">balance</p>
+                <p className="text-[0.6875rem] text-zinc-500 dark:text-zinc-400">balance</p>
               </div>
             </div>
             {(c.area_name || c.phone) && (

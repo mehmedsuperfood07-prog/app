@@ -120,7 +120,7 @@ function ClientCard({
           <p className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
             {formatRs(c.current_balance)}
           </p>
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+          <p className="text-[0.6875rem] text-zinc-500 dark:text-zinc-400">
             {overLimit ? "Over limit" : c.credit_limit > 0 ? `of ${formatRs(c.credit_limit)}` : "balance"}
           </p>
         </div>

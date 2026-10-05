@@ -58,7 +58,7 @@ export default async function AdminOrdersPage({
             >
               {FILTER_LABELS[f]}
               <span
-                className={`rounded-full px-1.5 py-0.5 text-[10px] leading-none ${
+                className={`rounded-full px-1.5 py-0.5 text-[0.625rem] leading-none ${
                   active ? "bg-white/25" : "bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300"
                 }`}
               >

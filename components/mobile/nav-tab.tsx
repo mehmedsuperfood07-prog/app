@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 
-const tabClasses = "group flex flex-1 flex-col items-center gap-0.5 pb-2 pt-2 text-[11px] font-medium";
+const tabClasses = "group flex flex-1 flex-col items-center gap-0.5 pb-2 pt-2 text-[0.6875rem] font-medium";
 
 function TabInner({
   icon: Icon,
