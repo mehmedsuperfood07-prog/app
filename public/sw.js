@@ -59,8 +59,11 @@ self.addEventListener("push", (event) => {
     Promise.all([
       self.registration.showNotification(payload.title ?? "Mehmed Order Manager", {
         body: payload.body,
-        icon: "/icons/icon.svg",
-        badge: "/icons/icon.svg",
+        // PNGs on purpose: notification icons are decoded as bitmaps, so an
+        // SVG isn't reliable, and Android wants the badge to be a
+        // white-on-transparent silhouette.
+        icon: "/icons/icon-192.png",
+        badge: "/icons/badge-96.png",
         tag: payload.tag,
         data: { url: payload.url ?? "/" },
         vibrate: [200, 100, 200],

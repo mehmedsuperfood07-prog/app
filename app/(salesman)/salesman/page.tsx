@@ -9,6 +9,7 @@ import { db, type CachedClient } from "@/lib/offline/db";
 import { pullLatestData } from "@/lib/offline/sync";
 import { CLIENT_SUBTYPE_LABELS } from "@/lib/constants";
 import { formatRs } from "@/lib/format";
+import { InstallAppPrompt } from "@/components/install-app-prompt";
 import { useToast } from "@/components/toast";
 import { PageHeader } from "@/components/mobile/page-header";
 import { CardLink } from "@/components/mobile/card";
@@ -82,6 +83,8 @@ export default function SalesmanHome() {
           </Link>
         }
       />
+
+      <InstallAppPrompt />
 
       <div className="mb-4 space-y-2.5">
         <div className="relative">

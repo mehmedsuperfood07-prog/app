@@ -1,3 +1,4 @@
+import { InstallAppPrompt } from "@/components/install-app-prompt";
 import { LoginForm } from "@/components/login-form";
 
 export default async function LoginPage({
@@ -35,6 +36,7 @@ export default async function LoginPage({
           </p>
           <LoginForm notice={notice} />
         </div>
+        <InstallAppPrompt className="mx-auto mt-4 max-w-sm" />
         <p className="mt-6 text-center text-xs text-zinc-400">
           Bulk food supply · Lahore, Pakistan
         </p>

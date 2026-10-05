@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { InstallPromptCapture } from "@/components/install-prompt-capture";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { ToastProvider } from "@/components/toast";
 import "./globals.css";
@@ -48,6 +49,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <ServiceWorkerRegister />
+        <InstallPromptCapture />
         <ToastProvider>{children}</ToastProvider>
       </body>
     </html>

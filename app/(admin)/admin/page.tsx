@@ -6,6 +6,7 @@ import { formatRs, formatDateTime, formatLongDate, greeting, firstName } from "@
 import { StatTile } from "@/components/mobile/stat-tile";
 import { CardLink, Card } from "@/components/mobile/card";
 import { OrderStatusPill } from "@/components/mobile/status-pill";
+import { InstallAppPrompt } from "@/components/install-app-prompt";
 import { PushNotificationSetup } from "@/components/push-notification-setup";
 
 export default async function AdminHome() {
@@ -40,6 +41,7 @@ export default async function AdminHome() {
       </section>
 
       <PushNotificationSetup />
+      <InstallAppPrompt iosHint={false} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile

@@ -4,6 +4,7 @@ import { formatDateTime } from "@/lib/format";
 import { PageHeader } from "@/components/mobile/page-header";
 import { CardLink } from "@/components/mobile/card";
 import { DeliveryStatusPill } from "@/components/mobile/status-pill";
+import { InstallAppPrompt } from "@/components/install-app-prompt";
 import { PushNotificationSetup } from "@/components/push-notification-setup";
 
 export default async function RiderHome() {
@@ -23,6 +24,7 @@ export default async function RiderHome() {
         }
       />
       <PushNotificationSetup />
+      <InstallAppPrompt iosHint={false} />
 
       {deliveries.length === 0 ? (
         <div className="flex flex-col items-center py-12 text-center">

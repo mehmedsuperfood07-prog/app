@@ -7,6 +7,9 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // .well-known holds the Digital Asset Links file that ties the Android
+    // app to this site; Google's checker and Android fetch it with no
+    // cookies and no patience for extra work, so it skips the session refresh.
+    "/((?!_next/static|_next/image|favicon.ico|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
