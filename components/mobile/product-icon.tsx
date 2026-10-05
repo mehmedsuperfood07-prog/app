@@ -2,7 +2,10 @@ import { GlassWater, Package, Wheat } from "lucide-react";
 
 // A recognisable glyph per product so a list of similar-looking rows is
 // scannable at a glance — juice bottles, grain/flour, everything else.
-// Chosen from the product's unit and name; no per-product setup needed.
+// Chosen from the product's unit (anything sold by weight is a dry
+// staple) with the name as a fallback; no per-product setup needed. Going
+// by name alone missed rice grades named only by brand, like "Biryani
+// White Label", which fell through to the generic box.
 export function ProductIcon({
   name,
   unit,
@@ -16,7 +19,12 @@ export function ProductIcon({
   const Icon =
     unit === "bottle" || lower.includes("juice")
       ? GlassWater
-      : lower.includes("atta") || lower.includes("flour") || lower.includes("rice") || lower.includes("wheat")
+      : unit === "kg" ||
+          unit === "bag" ||
+          lower.includes("atta") ||
+          lower.includes("flour") ||
+          lower.includes("rice") ||
+          lower.includes("wheat")
         ? Wheat
         : Package;
 
