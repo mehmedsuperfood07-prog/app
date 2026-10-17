@@ -14,10 +14,74 @@ const SOURCE = "brand/logo.png";
 const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
 const WHITE = { r: 255, g: 255, b: 255, alpha: 1 };
 
-// Crops the master down to the artwork itself, so every size below is measured
+// The master's lettering is see-through: it was cut out of the artwork, which only
+// reads as white on a white page. On a dark header the letters show the dark
+// background instead and the name looks broken. So: find the transparent pixels
+// connected to the edge of the picture (the real outside) and paint everything
+// else over white, which makes the lettering solid white. Pixels on the outer
+// rim keep their own transparency, so the outline blends into any background
+// without a white halo. A logo with nothing see-through inside passes through
+// unchanged.
+async function withSolidLettering(input) {
+  const { data, info } = await sharp(input).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const { width, height } = info;
+  const alpha = (i) => data[i * 4 + 3];
+
+  const outside = new Uint8Array(width * height);
+  const stack = [];
+  const visit = (x, y) => {
+    if (x < 0 || y < 0 || x >= width || y >= height) return;
+    const i = y * width + x;
+    if (outside[i] || alpha(i) > 10) return;
+    outside[i] = 1;
+    stack.push(i);
+  };
+  for (let x = 0; x < width; x++) {
+    visit(x, 0);
+    visit(x, height - 1);
+  }
+  for (let y = 0; y < height; y++) {
+    visit(0, y);
+    visit(width - 1, y);
+  }
+  while (stack.length) {
+    const i = stack.pop();
+    const x = i % width;
+    const y = (i - x) / width;
+    visit(x + 1, y);
+    visit(x - 1, y);
+    visit(x, y + 1);
+    visit(x, y - 1);
+  }
+
+  const touchesOutside = (x, y) => {
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= width || ny >= height || outside[ny * width + nx]) return true;
+      }
+    }
+    return false;
+  };
+
+  const solid = Buffer.from(data);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = y * width + x;
+      if (outside[i] || touchesOutside(x, y)) continue;
+      const a = alpha(i) / 255;
+      for (let c = 0; c < 3; c++) solid[i * 4 + c] = Math.round(data[i * 4 + c] * a + 255 * (1 - a));
+      solid[i * 4 + 3] = 255;
+    }
+  }
+  return sharp(solid, { raw: { width, height, channels: 4 } }).png().toBuffer();
+}
+
+// Crops the logo down to the artwork itself, so every size below is measured
 // against the logo and not against the empty margin around it.
-async function croppedLogo() {
-  const { data, info } = await sharp(SOURCE).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+async function croppedLogo(input) {
+  const { data, info } = await sharp(input).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   let minX = info.width;
   let minY = info.height;
   let maxX = -1;
@@ -32,13 +96,13 @@ async function croppedLogo() {
       }
     }
   }
-  return sharp(SOURCE)
+  return sharp(input)
     .extract({ left: minX, top: minY, width: maxX - minX + 1, height: maxY - minY + 1 })
     .png()
     .toBuffer();
 }
 
-const logo = await croppedLogo();
+const logo = await croppedLogo(await withSolidLettering(SOURCE));
 
 // The logo is landscape, so every square icon is the logo centred on a tile.
 async function squareIcon(size, widthFraction, { rounded = false, background = WHITE } = {}) {
