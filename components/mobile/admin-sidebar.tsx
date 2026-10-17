@@ -11,6 +11,7 @@ import {
   MapPin,
   UserCog,
 } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 import { SignOutButton } from "@/components/sign-out-button";
 import type { Profile } from "@/lib/auth";
 
@@ -59,13 +60,10 @@ export function AdminSidebar({ profile }: { profile: Profile }) {
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-zinc-200 bg-surface lg:flex dark:border-zinc-800">
       <div className="flex items-center gap-3 px-5 py-5">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-lg font-black text-accent-foreground">
-          M
-        </span>
-        <div className="leading-tight">
-          <p className="font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Mehmed</p>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">Order Manager</p>
-        </div>
+        <BrandLogo className="h-10" />
+        <p className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-200">
+          Order Manager
+        </p>
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">

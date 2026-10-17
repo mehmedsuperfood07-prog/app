@@ -60,7 +60,7 @@ export function AdminShell({
 
       <div className="lg:pl-64">
         <ShellHeader
-          title="Mehmed Admin"
+          title="Admin"
           profile={profile}
           contentClassName="max-w-3xl lg:max-w-5xl lg:px-8"
           hideTitleOnDesktop

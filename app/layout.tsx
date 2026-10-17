@@ -20,8 +20,8 @@ export const metadata: Metadata = {
   description: "Order management for Mehmed Super Foods",
   manifest: "/manifest.json",
   applicationName: "Mehmed Orders",
+  // The tab icon is app/favicon.ico (picked up automatically).
   icons: {
-    icon: "/icons/icon.svg",
     apple: "/icons/apple-touch-icon.png",
   },
   appleWebApp: {

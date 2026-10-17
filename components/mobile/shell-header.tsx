@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Menu } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 import { SignOutButton } from "@/components/sign-out-button";
 import type { Profile } from "@/lib/auth";
 
@@ -49,13 +50,7 @@ export function ShellHeader({
               <Menu size={22} />
             </button>
           )}
-          <span
-            className={`flex h-8 w-8 items-center justify-center rounded-xl bg-accent text-sm font-black text-accent-foreground ${
-              hideTitleOnDesktop ? "lg:hidden" : ""
-            }`}
-          >
-            M
-          </span>
+          <BrandLogo className={`h-9 ${hideTitleOnDesktop ? "lg:hidden" : ""}`} />
           <span
             className={`font-bold tracking-tight text-zinc-900 dark:text-zinc-50 ${
               hideTitleOnDesktop ? "lg:hidden" : ""

@@ -11,7 +11,7 @@ export default async function SalesmanLayout({
   const profile = await requireRole("salesman");
 
   return (
-    <MobileShell title="Mehmed Sales" profile={profile} bottomNav={<BottomNav />}>
+    <MobileShell title="Sales" profile={profile} bottomNav={<BottomNav />}>
       <div className="mb-4 flex justify-end">
         <SyncStatusIndicator />
       </div>

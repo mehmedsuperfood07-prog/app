@@ -16,7 +16,7 @@ export default async function RiderLayout({
       <PushRefreshListener />
       <PushSoundPlayer />
       <PushSubscriptionSync />
-      <MobileShell title="Mehmed Delivery" profile={profile}>
+      <MobileShell title="Delivery" profile={profile}>
         {children}
       </MobileShell>
     </>

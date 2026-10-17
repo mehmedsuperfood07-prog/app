@@ -1,3 +1,4 @@
+import { BrandLogo } from "@/components/brand-logo";
 import { InstallAppPrompt } from "@/components/install-app-prompt";
 import { LoginForm } from "@/components/login-form";
 
@@ -18,8 +19,8 @@ export default async function LoginPage({
         <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/10" />
         <div className="pointer-events-none absolute -left-10 bottom-0 h-40 w-40 rounded-full bg-white/5" />
         <div className="relative mx-auto flex max-w-sm flex-col items-center text-center">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-3xl font-black text-[#1b7a3e] shadow-lg shadow-black/20">
-            M
+          <div className="mb-4 rounded-2xl bg-white px-5 py-3 shadow-lg shadow-black/20">
+            <BrandLogo className="h-16" priority />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">Mehmed Super Foods</h1>
           <p className="mt-1 text-sm text-white/80">Order Manager</p>
