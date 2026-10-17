@@ -1,6 +1,7 @@
 import "server-only";
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { Document, Image, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { formatRs } from "@/lib/format";
+import { LOGO_DATA_URI } from "@/lib/pdf/logo-data";
 
 // Brand green (#1b7a3e) and its light tint (#d7f0a2), matching
 // mehmed.vercel.app exactly — the only colors used in this document.
@@ -10,7 +11,15 @@ const BRAND_GREEN_DEEP = "#1b3a12";
 
 const styles = StyleSheet.create({
   page: { padding: 32, fontSize: 10, fontFamily: "Helvetica" },
-  header: { flexDirection: "row", justifyContent: "space-between", marginBottom: 24 },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  brand: { flexDirection: "row", alignItems: "center" },
+  // The logo's own proportions are 247:158, so 75x48 keeps it undistorted.
+  logo: { width: 75, height: 48, marginRight: 12 },
   businessName: { fontSize: 16, fontWeight: 700, color: BRAND_GREEN },
   invoiceMeta: { textAlign: "right" },
   section: { marginBottom: 16 },
@@ -72,7 +81,11 @@ export function InvoiceDocument({
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
-          <Text style={styles.businessName}>Mehmed Super Foods</Text>
+          <View style={styles.brand}>
+            {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf's Image draws into the PDF; it is not an HTML <img> */}
+            <Image src={LOGO_DATA_URI} style={styles.logo} />
+            <Text style={styles.businessName}>Mehmed Super Foods</Text>
+          </View>
           <View style={styles.invoiceMeta}>
             <Text>Invoice {invoiceNumber}</Text>
             <Text>{issuedAt}</Text>
