@@ -36,7 +36,7 @@ export async function GET() {
     supabase
       .from("orders")
       .select(
-        "id, status, created_at, client:clients(id, name), order_items(quantity, unit_price_at_order_time)",
+        "id, status, created_at, expected_delivery_date, client:clients(id, name), order_items(quantity, unit_price_at_order_time)",
       )
       .order("created_at", { ascending: false })
       .limit(200),
@@ -58,6 +58,7 @@ export async function GET() {
     id: string;
     status: string;
     created_at: string;
+    expected_delivery_date: string | null;
     client: { id: string; name: string } | null;
     order_items: { quantity: number; unit_price_at_order_time: number }[];
   };
@@ -87,6 +88,7 @@ export async function GET() {
       id: o.id,
       status: o.status,
       created_at: o.created_at,
+      expected_delivery_date: o.expected_delivery_date,
       client_id: o.client?.id ?? "",
       client_name: o.client?.name ?? "Unknown client",
       total: o.order_items.reduce(

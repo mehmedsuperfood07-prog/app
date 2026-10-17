@@ -7,8 +7,9 @@ import { Minus, Plus, Search, TriangleAlert, MapPin } from "lucide-react";
 import { db, type CachedPriceOverride, type CachedProduct } from "@/lib/offline/db";
 import { pullLatestData, queueOrder } from "@/lib/offline/sync";
 import { effectivePrice } from "@/lib/offline/pricing";
-import { formatRs } from "@/lib/format";
+import { formatRs, todayPakistanISO } from "@/lib/format";
 import { useToast } from "@/components/toast";
+import { DeliveryDateField } from "@/components/delivery-date-field";
 import { PageHeader } from "@/components/mobile/page-header";
 import { CardLink } from "@/components/mobile/card";
 import { Button } from "@/components/mobile/button";
@@ -28,6 +29,11 @@ export default function NewOrderPage() {
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState("");
   const [pulled, setPulled] = useState(false);
+  // "YYYY-MM-DD" once chosen. Required: there is deliberately no default, so
+  // every order carries a date the salesman actually picked.
+  const [deliveryDate, setDeliveryDate] = useState("");
+  const [dateMissing, setDateMissing] = useState(false);
+  const dateFieldRef = useRef<HTMLDivElement>(null);
   const submittingRef = useRef(false);
 
   useEffect(() => {
@@ -160,13 +166,27 @@ export default function NewOrderPage() {
       return;
     }
 
+    // The date card sits at the end of the product list, usually off-screen
+    // by the time the salesman taps "Place order", so bring it into view.
+    if (!deliveryDate || deliveryDate < todayPakistanISO()) {
+      setDeliveryDate("");
+      setDateMissing(true);
+      dateFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
     // Stays "submitting" once the order is queued — the navigation below
     // takes a moment, and re-enabling the button here would let a second
     // tap queue the same order twice.
     submittingRef.current = true;
     setSubmitting(true);
     try {
-      await queueOrder({ clientId: client!.id, clientName: client!.name, items });
+      await queueOrder({
+        clientId: client!.id,
+        clientName: client!.name,
+        items,
+        expectedDeliveryDate: deliveryDate,
+      });
       show(
         navigator.onLine
           ? "Order placed."
@@ -311,6 +331,17 @@ export default function NewOrderPage() {
               </div>
             );
           })}
+
+          <div ref={dateFieldRef}>
+            <DeliveryDateField
+              value={deliveryDate}
+              invalid={dateMissing && !deliveryDate}
+              onChange={(date) => {
+                setDeliveryDate(date);
+                setDateMissing(false);
+              }}
+            />
+          </div>
         </div>
       )}
 

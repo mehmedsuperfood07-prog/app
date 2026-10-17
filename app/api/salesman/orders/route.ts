@@ -28,8 +28,17 @@ export async function POST(request: Request) {
   const createdOfflineAt =
     typeof body.created_offline_at === "string" ? body.created_offline_at : undefined;
 
+  // Absent on orders queued before the delivery-date field existed.
+  const expectedDeliveryDate =
+    typeof body.expected_delivery_date === "string" ? body.expected_delivery_date : null;
+
   try {
-    const orderId = await createOrder(body.client_id, items, createdOfflineAt);
+    const orderId = await createOrder(
+      body.client_id,
+      items,
+      createdOfflineAt,
+      expectedDeliveryDate,
+    );
     return NextResponse.json({ orderId });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Could not place order.";

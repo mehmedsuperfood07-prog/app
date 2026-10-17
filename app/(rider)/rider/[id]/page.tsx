@@ -6,6 +6,7 @@ import { advanceDeliveryAction } from "@/lib/actions/deliveries";
 import { ActionForm } from "@/components/action-form";
 import { PageHeader } from "@/components/mobile/page-header";
 import { Card } from "@/components/mobile/card";
+import { DeliveryDateLine } from "@/components/mobile/delivery-date-line";
 import { ProductIcon } from "@/components/mobile/product-icon";
 import { StepTracker } from "@/components/mobile/step-tracker";
 import { SubmitButton } from "@/components/mobile/submit-button";
@@ -43,6 +44,13 @@ export default async function DeliveryDetailPage({
         title={delivery.client?.name ?? "Unknown client"}
         backHref="/rider"
         backLabel="My Deliveries"
+        subtitle={
+          <DeliveryDateLine
+            date={delivery.expected_delivery_date}
+            status={delivery.delivery_status === "delivered" ? "delivered" : "out_for_delivery"}
+            size="sm"
+          />
+        }
       />
 
       <Card className="mb-4">

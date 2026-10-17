@@ -3,6 +3,7 @@ import { getOrderDetail } from "@/lib/orders";
 import { formatDateTime, formatRs } from "@/lib/format";
 import { PageHeader } from "@/components/mobile/page-header";
 import { Card } from "@/components/mobile/card";
+import { DeliveryDateLine } from "@/components/mobile/delivery-date-line";
 import { ProductIcon } from "@/components/mobile/product-icon";
 import { OrderStatusPill } from "@/components/mobile/status-pill";
 
@@ -30,6 +31,11 @@ export default async function OrderDetailPage({
           <>
             {formatDateTime(order.created_at)}
             {order.client?.address && <> · {order.client.address}</>}
+            <DeliveryDateLine
+              date={order.expected_delivery_date}
+              status={order.status}
+              className="mt-1"
+            />
           </>
         }
         action={<OrderStatusPill status={order.status} />}

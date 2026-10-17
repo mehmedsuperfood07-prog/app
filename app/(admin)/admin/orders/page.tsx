@@ -9,6 +9,7 @@ import {
 import { listActiveRiders } from "@/lib/staff";
 import { formatDateTime, formatRs } from "@/lib/format";
 import { PageHeader } from "@/components/mobile/page-header";
+import { DeliveryDateLine } from "@/components/mobile/delivery-date-line";
 import { DeliveryStatusPill, OrderStatusPill } from "@/components/mobile/status-pill";
 import { AssignRiderForm } from "@/components/assign-rider-form";
 
@@ -100,6 +101,7 @@ export default async function AdminOrdersPage({
                       {formatDateTime(o.createdAt)} · {o.itemCount} item
                       {o.itemCount === 1 ? "" : "s"}
                     </p>
+                    <DeliveryDateLine date={o.expectedDeliveryDate} status={o.status} className="mt-0.5" />
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1.5">
                     <span className="text-sm font-bold text-zinc-900 dark:text-zinc-50">

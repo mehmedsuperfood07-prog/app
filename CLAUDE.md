@@ -90,7 +90,9 @@ price_overrides
 orders
   id, client_id, salesman_id, status
       (draft | pending_sync | placed | out_for_delivery | delivered | cancelled),
-  created_offline_at, synced_at, rider_id
+  created_offline_at, synced_at, rider_id,
+  expected_delivery_date      -- date; required on the salesman's order form,
+                              -- null only on orders placed before it existed
 
 order_items
   order_id, product_id, quantity, unit_price_at_order_time
@@ -125,7 +127,7 @@ integration_events
 
 ## 5. Core workflows
 
-**Taking an order (salesman, offline-capable):** pick client → catalog shows each product's price (override if one exists for that client, else default) → add quantities → submit. Writes to the local queue immediately; syncs when a connection is available. The salesman never waits on a network call to add a line item.
+**Taking an order (salesman, offline-capable):** pick client → catalog shows each product's price (override if one exists for that client, else default) → add quantities → choose the expected delivery date (required; shown to admin and the rider) → submit. Writes to the local queue immediately; syncs when a connection is available. The salesman never waits on a network call to add a line item.
 
 **New client (salesman or admin):** name, customer type, area, address, phone, credit limit. Salesman-created clients are immediately usable — no approval gate blocks a sale, but they're visible to admin for review.
 

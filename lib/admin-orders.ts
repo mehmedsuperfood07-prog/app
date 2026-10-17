@@ -10,6 +10,7 @@ export type AdminOrderListItem = {
   id: string;
   status: string;
   createdAt: string;
+  expectedDeliveryDate: string | null;
   clientName: string;
   salesmanName: string | null;
   riderName: string | null;
@@ -22,6 +23,7 @@ type OrderRow = {
   id: string;
   status: string;
   created_at: string;
+  expected_delivery_date: string | null;
   salesman_id: string | null;
   rider_id: string | null;
   client: { name: string } | null;
@@ -57,7 +59,7 @@ export async function listAdminOrders(
   let query = supabase
     .from("orders")
     .select(
-      "id, status, created_at, salesman_id, rider_id, client:clients(name), order_items(quantity, unit_price_at_order_time), deliveries(status)",
+      "id, status, created_at, expected_delivery_date, salesman_id, rider_id, client:clients(name), order_items(quantity, unit_price_at_order_time), deliveries(status)",
     )
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -79,6 +81,7 @@ export async function listAdminOrders(
     id: o.id,
     status: o.status,
     createdAt: o.created_at,
+    expectedDeliveryDate: o.expected_delivery_date,
     clientName: o.client?.name ?? "Unknown client",
     salesmanName: o.salesman_id ? (names.get(o.salesman_id) ?? null) : null,
     riderName: o.rider_id ? (names.get(o.rider_id) ?? null) : null,
@@ -96,6 +99,7 @@ export type AdminOrderDetail = {
   status: string;
   createdAt: string;
   createdOfflineAt: string | null;
+  expectedDeliveryDate: string | null;
   client: {
     id: string;
     name: string;
@@ -128,7 +132,9 @@ export async function getAdminOrderDetail(id: string): Promise<AdminOrderDetail 
 
   const { data: order } = await supabase
     .from("orders")
-    .select("id, status, created_at, created_offline_at, client_id, salesman_id, rider_id")
+    .select(
+      "id, status, created_at, created_offline_at, expected_delivery_date, client_id, salesman_id, rider_id",
+    )
     .eq("id", id)
     .maybeSingle();
   if (!order) return null;
@@ -215,6 +221,7 @@ export async function getAdminOrderDetail(id: string): Promise<AdminOrderDetail 
     status: order.status,
     createdAt: order.created_at,
     createdOfflineAt: order.created_offline_at,
+    expectedDeliveryDate: order.expected_delivery_date,
     client: c
       ? {
           id: c.id,

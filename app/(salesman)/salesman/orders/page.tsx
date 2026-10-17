@@ -9,6 +9,7 @@ import { pullLatestData, syncPendingOrders } from "@/lib/offline/sync";
 import { formatDateTime, formatRs } from "@/lib/format";
 import { PageHeader } from "@/components/mobile/page-header";
 import { Card, CardLink } from "@/components/mobile/card";
+import { DeliveryDateLine } from "@/components/mobile/delivery-date-line";
 import { OrderStatusPill, StatusPill } from "@/components/mobile/status-pill";
 import { Skeleton } from "@/components/mobile/skeleton";
 
@@ -28,6 +29,7 @@ export default function OrdersPage() {
       clientName: p.client_name,
       createdAt: p.created_offline_at,
       total: p.items.reduce((sum, i) => sum + i.quantity * i.unit_price, 0),
+      deliveryDate: p.expected_delivery_date ?? null,
       status: p.status,
       error: p.error,
       items: p.items,
@@ -40,6 +42,7 @@ export default function OrdersPage() {
       clientName: o.client_name,
       createdAt: o.created_at,
       total: o.total,
+      deliveryDate: o.expected_delivery_date ?? null,
       status: o.status,
     }))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -99,6 +102,7 @@ export default function OrdersPage() {
               <span>{formatDateTime(o.createdAt)}</span>
               <span>{formatRs(o.total)}</span>
             </div>
+            <DeliveryDateLine date={o.deliveryDate} className="mt-1" />
             <ul className="mt-2.5 space-y-0.5 border-t border-zinc-100 pt-2.5 text-xs text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
               {o.items.map((item, i) => (
                 <li key={i}>
@@ -137,6 +141,7 @@ export default function OrdersPage() {
                 {formatRs(o.total)}
               </span>
             </div>
+            <DeliveryDateLine date={o.deliveryDate} status={o.status} className="mt-1" />
           </CardLink>
         ))}
       </div>

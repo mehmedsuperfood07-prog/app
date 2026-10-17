@@ -38,6 +38,7 @@ export async function queueOrder(input: {
   clientId: string;
   clientName: string;
   items: PendingOrderItem[];
+  expectedDeliveryDate: string;
 }): Promise<string> {
   const id = crypto.randomUUID();
   await db.pendingOrders.put({
@@ -45,6 +46,7 @@ export async function queueOrder(input: {
     client_id: input.clientId,
     client_name: input.clientName,
     items: input.items,
+    expected_delivery_date: input.expectedDeliveryDate,
     created_offline_at: new Date().toISOString(),
     status: "queued",
   });
@@ -98,6 +100,7 @@ export async function syncPendingOrders(): Promise<void> {
               unit_price: i.unit_price,
             })),
             created_offline_at: order.created_offline_at,
+            expected_delivery_date: order.expected_delivery_date ?? null,
           }),
         });
 
@@ -120,6 +123,7 @@ export async function syncPendingOrders(): Promise<void> {
               client_id: order.client_id,
               client_name: order.client_name,
               total: order.items.reduce((sum, i) => sum + i.quantity * i.unit_price, 0),
+              expected_delivery_date: order.expected_delivery_date ?? null,
             });
           }
           await db.pendingOrders.delete(order.id);

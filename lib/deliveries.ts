@@ -4,7 +4,7 @@ import { getCurrentProfile } from "@/lib/auth";
 import { createInvoiceForOrder } from "@/lib/invoices";
 import { deferPush, sendPushToUser, sendPushToRole } from "@/lib/push";
 import { dbErrorMessage } from "@/lib/errors";
-import { startOfTodayPakistan } from "@/lib/format";
+import { formatDeliveryDate, startOfTodayPakistan } from "@/lib/format";
 
 export const DELIVERY_STATUSES = [
   "assigned",
@@ -51,6 +51,7 @@ const DELIVERY_PUSH_COPY: Record<
 export type RiderDeliveryListItem = {
   id: string;
   created_at: string;
+  expected_delivery_date: string | null;
   delivery_status: DeliveryStatus;
   client: { id: string; name: string; address: string | null } | null;
 };
@@ -64,9 +65,12 @@ export async function listMyDeliveries(): Promise<RiderDeliveryListItem[]> {
 
   const { data: orders } = await supabase
     .from("orders")
-    .select("id, created_at, client_id, deliveries(status)")
+    .select("id, created_at, expected_delivery_date, client_id, deliveries(status)")
     .eq("rider_id", user.id)
     .eq("status", "out_for_delivery")
+    // Soonest promised date first, so the day's deliveries lead the list;
+    // orders with no date (placed before the field existed) go last.
+    .order("expected_delivery_date", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: true });
 
   if (!orders || orders.length === 0) return [];
@@ -83,6 +87,7 @@ export async function listMyDeliveries(): Promise<RiderDeliveryListItem[]> {
   return (orders as Row[]).map((o) => ({
     id: o.id,
     created_at: o.created_at,
+    expected_delivery_date: o.expected_delivery_date,
     delivery_status: (o.deliveries?.[0]?.status ?? "assigned") as DeliveryStatus,
     client: clientMap.get(o.client_id) ?? null,
   }));
@@ -141,6 +146,7 @@ export async function listMyDeliveredToday(): Promise<RiderCompletedItem[]> {
 
 export type RiderDeliveryDetail = {
   id: string;
+  expected_delivery_date: string | null;
   delivery_status: DeliveryStatus;
   client: { id: string; name: string; address: string | null; phone: string | null } | null;
   items: {
@@ -167,7 +173,7 @@ export async function getDeliveryDetail(
 
   const { data: order } = await supabase
     .from("orders")
-    .select("id, client_id, rider_id, deliveries(status)")
+    .select("id, client_id, rider_id, expected_delivery_date, deliveries(status)")
     .eq("id", orderId)
     .single();
   if (!order || order.rider_id !== user.id) return null;
@@ -200,6 +206,7 @@ export async function getDeliveryDetail(
 
   return {
     id: order.id,
+    expected_delivery_date: order.expected_delivery_date,
     delivery_status: (order.deliveries?.[0]?.status ?? "assigned") as DeliveryStatus,
     client: client ?? null,
     items: (items ?? []).map((i) => ({
@@ -318,7 +325,7 @@ export async function assignRiderToOrder(orderId: string, riderId: string) {
     .update({ rider_id: riderId, status: "out_for_delivery" })
     .eq("id", orderId)
     .eq("status", "placed")
-    .select("client_id");
+    .select("client_id, expected_delivery_date");
   if (orderError) throw new Error(dbErrorMessage(orderError));
   if (!claimed || claimed.length === 0) {
     throw new Error("This order already has a rider.");
@@ -340,6 +347,7 @@ export async function assignRiderToOrder(orderId: string, riderId: string) {
     .insert({ order_id: orderId, status: "out_for_delivery", changed_by: caller.id });
 
   const clientId = claimed[0].client_id;
+  const deliveryDate = claimed[0].expected_delivery_date as string | null;
   deferPush(async () => {
     const admin = createAdminClient();
     const { data: client } = await admin
@@ -349,9 +357,11 @@ export async function assignRiderToOrder(orderId: string, riderId: string) {
       .single();
     await sendPushToUser(riderId, {
       title: "New delivery assigned",
-      body: client
-        ? `${client.name}${client.address ? ` · ${client.address}` : ""}`
-        : "A new order is waiting for pickup",
+      body: `${
+        client
+          ? `${client.name}${client.address ? ` · ${client.address}` : ""}`
+          : "A new order is waiting for pickup"
+      }${deliveryDate ? ` · deliver ${formatDeliveryDate(deliveryDate)}` : ""}`,
       url: `/rider/${orderId}`,
     });
   });

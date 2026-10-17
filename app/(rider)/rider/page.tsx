@@ -3,6 +3,7 @@ import { listMyDeliveries, listMyDeliveredToday } from "@/lib/deliveries";
 import { formatDateTime } from "@/lib/format";
 import { PageHeader } from "@/components/mobile/page-header";
 import { CardLink } from "@/components/mobile/card";
+import { DeliveryDateLine } from "@/components/mobile/delivery-date-line";
 import { DeliveryStatusPill } from "@/components/mobile/status-pill";
 import { InstallAppPrompt } from "@/components/install-app-prompt";
 import { PushNotificationSetup } from "@/components/push-notification-setup";
@@ -50,6 +51,11 @@ export default async function RiderHome() {
                 </span>
                 <DeliveryStatusPill status={d.delivery_status} />
               </div>
+              <DeliveryDateLine
+                date={d.expected_delivery_date}
+                status="out_for_delivery"
+                className="mt-1"
+              />
               <div className="mt-1.5 flex items-center justify-between gap-2">
                 <span className="flex min-w-0 items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
                   <MapPin size={12} className="shrink-0" />

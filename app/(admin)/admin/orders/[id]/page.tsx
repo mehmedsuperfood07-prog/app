@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
-import { MapPin, Phone, UserRound, Truck, Download, FileText } from "lucide-react";
+import { MapPin, Phone, UserRound, Truck, Download, FileText, CalendarDays } from "lucide-react";
 import { getAdminOrderDetail } from "@/lib/admin-orders";
 import { listActiveRiders } from "@/lib/staff";
-import { formatDateTime, formatRs } from "@/lib/format";
+import { describeDeliveryDate, formatDateTime, formatRs, isDeliveryOverdue } from "@/lib/format";
 import { PageHeader } from "@/components/mobile/page-header";
 import { Card } from "@/components/mobile/card";
 import {
@@ -86,6 +86,21 @@ export default async function AdminOrderDetailPage({
 
         <div className="space-y-3 lg:col-span-2">
           <Card className="space-y-2.5 text-sm">
+            {order.expectedDeliveryDate && (
+              <p
+                className={`flex items-center gap-2 ${
+                  isDeliveryOverdue(order.expectedDeliveryDate, order.status)
+                    ? "font-semibold text-zinc-900 dark:text-zinc-50"
+                    : "text-zinc-700 dark:text-zinc-300"
+                }`}
+              >
+                <CalendarDays size={16} className="shrink-0 text-zinc-400" />
+                {isDeliveryOverdue(order.expectedDeliveryDate, order.status)
+                  ? "Overdue · was due "
+                  : "Delivery: "}
+                {describeDeliveryDate(order.expectedDeliveryDate)}
+              </p>
+            )}
             {client?.address && (
               <p className="flex items-start gap-2 text-zinc-700 dark:text-zinc-300">
                 <MapPin size={16} className="mt-0.5 shrink-0 text-zinc-400" />

@@ -50,6 +50,8 @@ export type CachedOrder = {
   client_id: string;
   client_name: string;
   total: number;
+  // "YYYY-MM-DD"; null for orders placed before the field existed.
+  expected_delivery_date: string | null;
 };
 
 export type PendingOrderItem = {
@@ -69,6 +71,9 @@ export type PendingOrder = {
   client_id: string;
   client_name: string;
   items: PendingOrderItem[];
+  // "YYYY-MM-DD", the day the salesman promised delivery. Missing on orders
+  // that were already queued on a phone before the field existed.
+  expected_delivery_date?: string | null;
   created_offline_at: string;
   status: "queued" | "syncing" | "failed";
   error?: string;
