@@ -7,7 +7,7 @@ import { ok, fail, type ActionResult } from "@/lib/actions/result";
 const ADVANCE_MESSAGES = {
   picked_up: "Marked as picked up.",
   on_the_way: "Marked as on the way.",
-  delivered: "Delivered — invoice generated.",
+  delivered: "Marked as delivered.",
 } as const;
 
 export async function assignRiderAction(formData: FormData): Promise<ActionResult> {
@@ -21,8 +21,9 @@ export async function assignRiderAction(formData: FormData): Promise<ActionResul
   }
 
   revalidatePath("/admin/orders");
+  revalidatePath("/admin/invoices");
   revalidatePath("/admin");
-  return ok("Rider assigned.");
+  return ok("Rider assigned — invoice generated.");
 }
 
 export async function advanceDeliveryAction(formData: FormData): Promise<ActionResult> {

@@ -23,7 +23,7 @@ export default async function AdminInvoicesPage() {
         subtitle={
           invoices.length > 0
             ? `${invoices.length} invoice${invoices.length === 1 ? "" : "s"} · ${formatRs(totalInvoiced)} in total`
-            : "Generated automatically when a rider marks an order delivered"
+            : "Generated automatically when you assign a rider to an order"
         }
       />
 
@@ -34,7 +34,7 @@ export default async function AdminInvoicesPage() {
           </div>
           <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">No invoices yet</p>
           <p className="mt-0.5 max-w-xs text-xs text-zinc-500 dark:text-zinc-400">
-            An invoice is created automatically the moment a rider marks an order delivered.
+            An invoice is created automatically the moment you assign a rider to an order.
           </p>
         </div>
       ) : (

@@ -49,7 +49,7 @@ No public sign-up screen. Admin creates every staff account (see Auth, below).
 | Local/offline data | Dexie.js (IndexedDB) + a sync queue | Orders write locally first, always — sync is a background process, never something the salesman waits on |
 | Backend | Supabase — Postgres, Auth, Storage, Realtime | Row-level security enforces the role table above at the database level, not just in the UI |
 | Auth | Supabase Auth, **email + password**, accounts created by admin only | No SMS/OTP — keeps this fully free (phone OTP needs a paid SMS provider) |
-| Invoices | Server/edge function renders an HTML template to PDF on delivery confirmation, stored in Supabase Storage | |
+| Invoices | Server/edge function renders the invoice PDF when the admin assigns a rider, stored in Supabase Storage | |
 | Hosting | Vercel (Hobby to start) | See the cost note below |
 
 **Cost note:** Vercel's free Hobby plan and Supabase's free plan cover this comfortably at this scale (well under the free request/storage caps). One thing to know: Vercel's Hobby plan terms are written for "personal, non-commercial use" — a client's business app doesn't strictly fit that wording, though small internal tools run on it constantly without issue in practice. If full compliance matters, budget $20/month for Vercel Pro once the app is live for the business, or host on Netlify's free tier instead, which carries no such restriction.
@@ -131,9 +131,9 @@ integration_events
 
 **New client (salesman or admin):** name, customer type, area, address, phone, credit limit. Salesman-created clients are immediately usable — no approval gate blocks a sale, but they're visible to admin for review.
 
-**Delivery (rider):** sees orders assigned to them (or filtered to their area), updates status through Picked Up → On the Way → Delivered, optionally photographs proof of delivery. Delivery triggers invoice generation.
+**Delivery (rider):** sees orders assigned to them (or filtered to their area), updates status through Picked Up → On the Way → Delivered, optionally photographs proof of delivery. The invoice already exists by then — it is raised when the admin assigns the rider, not when the order is delivered.
 
-**Invoicing:** generated automatically on `delivered`, using `order_items` (the snapshotted prices, not current catalog prices). Client's `current_balance` increases by the invoice amount.
+**Invoicing:** generated automatically when the admin assigns a rider (the order goes `placed` → `out_for_delivery`), not on delivery, so the office has it to send out with the goods. If it cannot be generated the assignment is undone and the admin retries. Uses `order_items` (the snapshotted prices, not current catalog prices). Client's `current_balance` increases by the invoice amount.
 
 **Payment recording (admin/office):** logs a payment against a client or a specific invoice; `current_balance` decreases. This is the client ledger — no separate accounting system needed for Phase 1.
 
@@ -159,7 +159,7 @@ integration_events
 3. Admin: client CRUD, product CRUD, area management
 4. Salesman: client list (by assigned area), new order — **online-only first**
 5. Rider: assigned orders, status updates
-6. Basic PDF invoice on delivery
+6. Basic PDF invoice (raised when a rider is assigned)
 7. Layer in Dexie.js + sync queue on top of the now-working online flow
 
 **Phase 2 — running the business day to day**

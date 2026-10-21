@@ -5,26 +5,28 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { InvoiceDocument } from "@/lib/pdf/invoice-document";
 import { formatDate } from "@/lib/format";
 
-// Runs on the service-role client: this is a system-triggered side effect
-// of a rider marking a delivery complete (see advanceDelivery in
-// lib/deliveries.ts), not something the rider is requesting on their own
-// authority. The rider has no RLS access to invoices or to a client's
-// ledger balance, and shouldn't — the authorization for "this order was
-// really just delivered" already happened in the RLS-respecting calls
-// that ran before this one.
+// Runs on the service-role client: the invoice is a system-generated side
+// effect of an admin assigning a rider (assignRiderToOrder in
+// lib/deliveries.ts), not something the caller writes directly. The one
+// other caller is advanceDelivery, as a fallback for orders assigned before
+// invoices moved to the assignment step; there the caller is a rider, who
+// has no RLS access to invoices or to a client's ledger balance, and
+// shouldn't. The authorization already happened in the RLS-respecting
+// calls that ran before this one.
 //
-// Idempotent: advanceDelivery's conditional update already guarantees this
+// Idempotent: the assignment's conditional update already guarantees this
 // runs once per order, but a retry or replay must still never produce a
 // second invoice (and a second charge to the client's balance), so an
 // existing invoice for the order short-circuits everything below.
 //
 // Known limitation: these are separate network calls, not one DB
-// transaction, so a failure partway through (e.g. the balance update)
-// can leave an invoice row without a matching balance bump. Acceptable
-// for a "basic" Phase 1 invoice — it throws rather than swallowing the
-// error, so a partial failure is visible instead of silent. A proper fix
-// would move this into a single Postgres function/transaction if it
-// becomes a real problem.
+// transaction. The one partial failure that would be silent is an invoice
+// with no balance charge (the existing-invoice check above would then skip
+// the charge on every retry), so that case removes the invoice again and
+// throws; a failure at any earlier step leaves nothing behind but an unused
+// invoice number and a PDF the next attempt overwrites. A proper fix would
+// move this into a single Postgres function/transaction if it becomes a
+// real problem.
 export async function createInvoiceForOrder(orderId: string) {
   const admin = createAdminClient();
 
@@ -93,19 +95,28 @@ export async function createInvoiceForOrder(orderId: string) {
     .upload(pdfPath, pdfBuffer, { contentType: "application/pdf", upsert: true });
   if (uploadError) throw new Error(uploadError.message);
 
-  const { error: invoiceError } = await admin.from("invoices").insert({
-    order_id: orderId,
-    invoice_number: invoiceNumber,
-    pdf_url: pdfPath,
-    amount: total,
-  });
-  if (invoiceError) throw new Error(invoiceError.message);
+  const { data: invoice, error: invoiceError } = await admin
+    .from("invoices")
+    .insert({
+      order_id: orderId,
+      invoice_number: invoiceNumber,
+      pdf_url: pdfPath,
+      amount: total,
+    })
+    .select("id")
+    .single();
+  if (invoiceError || !invoice) {
+    throw new Error(invoiceError?.message ?? "Could not save the invoice.");
+  }
 
   const { error: balanceError } = await admin.rpc("increment_client_balance", {
     p_client_id: order.client_id,
     p_amount: total,
   });
-  if (balanceError) throw new Error(balanceError.message);
+  if (balanceError) {
+    await admin.from("invoices").delete().eq("id", invoice.id);
+    throw new Error(balanceError.message);
+  }
 }
 
 export type AdminInvoiceRow = {

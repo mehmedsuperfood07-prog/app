@@ -40,7 +40,7 @@ const DELIVERY_PUSH_COPY: Record<
 > = {
   picked_up: (name) => ({ title: "Order picked up", body: `${name} — rider has the order` }),
   on_the_way: (name) => ({ title: "Rider on the way", body: `${name} — out for delivery` }),
-  delivered: (name) => ({ title: "Delivery completed", body: `${name} was delivered — invoice generated` }),
+  delivered: (name) => ({ title: "Delivery completed", body: `${name} was delivered` }),
 };
 
 // Riders never see clients or products directly (those tables carry
@@ -225,8 +225,8 @@ export async function getDeliveryDetail(
 // The update is conditional on the status the delivery was read at
 // (.eq("status", delivery.status)), which makes each step atomic: if two
 // taps race, only one UPDATE matches a row and the other is rejected.
-// Without that, a double-tap on "Mark delivered" would run the invoice
-// step twice — two invoices and the client's balance charged twice.
+// Without that, a double-tap on "Mark delivered" would run the delivered
+// step twice — duplicate history rows and a duplicate push to the office.
 export async function advanceDelivery(orderId: string): Promise<AdvancedStatus> {
   const supabase = await createClient();
   const {
@@ -275,6 +275,9 @@ export async function advanceDelivery(orderId: string): Promise<AdvancedStatus> 
       .from("order_status_history")
       .insert({ order_id: orderId, status: "delivered", changed_by: user.id });
 
+    // Invoices are raised when the rider is assigned (assignRiderToOrder),
+    // so for every new order this finds one and does nothing. It only does
+    // work for an order assigned before that change, which has none yet.
     await createInvoiceForOrder(orderId);
   }
 
@@ -288,7 +291,7 @@ export async function advanceDelivery(orderId: string): Promise<AdvancedStatus> 
       .single();
     await sendPushToRole("admin", {
       ...DELIVERY_PUSH_COPY[next](client?.name ?? "An order"),
-      url: next === "delivered" ? "/admin/invoices" : "/admin/orders",
+      url: "/admin/orders",
     });
   });
 
@@ -340,6 +343,26 @@ export async function assignRiderToOrder(orderId: string, riderId: string) {
       .update({ rider_id: null, status: "placed" })
       .eq("id", orderId);
     throw new Error(dbErrorMessage(deliveryError));
+  }
+
+  // The invoice is raised here, not on delivery: the office needs it to go
+  // out with the goods. If it can't be produced the assignment is undone, so
+  // the admin just tries again and no order is ever out for delivery without
+  // one. The claim above makes this the only caller for the order, so it
+  // can't race another admin into a second invoice. Service role for the
+  // undo: it has to remove the delivery row we just wrote, whatever RLS says.
+  try {
+    await createInvoiceForOrder(orderId);
+  } catch (err) {
+    const admin = createAdminClient();
+    await admin.from("deliveries").delete().eq("order_id", orderId);
+    await admin
+      .from("orders")
+      .update({ rider_id: null, status: "placed" })
+      .eq("id", orderId)
+      .eq("status", "out_for_delivery");
+    const detail = err instanceof Error && err.message ? ` (${err.message})` : "";
+    throw new Error(`Could not generate the invoice${detail}, so no rider was assigned. Try again.`);
   }
 
   await supabase
