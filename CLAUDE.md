@@ -35,7 +35,7 @@ Built for a **medium-sized team**: roughly 4–10 salesmen and several delivery 
 |---|---|---|
 | **Salesman** | Takes orders from their assigned clients (in-person, on their phone), can add a new client, views their own order history | Cannot edit prices, cannot see other salesmen's clients or orders, cannot see the client ledger's full history — only outstanding balance at order time |
 | **Rider (delivery)** | Sees orders assigned to them, updates status (Picked Up → On the Way → Delivered), captures proof of delivery | Cannot create or edit orders, cannot see pricing or ledger details |
-| **Admin/Office** | Manages product catalog & prices, manages client accounts & credit terms, manages price overrides, assigns salesmen/riders to areas, sees everything — all orders, invoices, ledgers, reports | — |
+| **Admin/Office** | Manages product catalog & prices, manages client accounts & credit terms, manages price overrides, assigns salesmen/riders to areas, sees everything — all orders, invoices, ledgers, reports. Can also do the salesman's and rider's jobs from the admin screens: take an order for any client (credited to a salesman, normally the client's own), and move a delivery forward or mark it delivered on the rider's behalf — including delivering an order with no rider (client collected it) | — |
 
 No public sign-up screen. Admin creates every staff account (see Auth, below).
 
@@ -94,6 +94,8 @@ orders
   expected_delivery_date      -- date; required on the salesman's order form,
                               -- null only on orders placed before it existed
   cancelled_at, cancelled_by, cancel_reason   -- set by cancel_order()
+  placed_by     -- who entered it when that wasn't the salesman (an admin,
+                -- via admin_create_order); null = the salesman did
 
 order_items
   order_id, product_id, quantity, unit_price_at_order_time
@@ -130,10 +132,12 @@ integration_events
 | `order.rider_changed` | order | `from_rider_id`, `to_rider_id`, `delivery_status_before`, `changed_by` |
 | `order.cancelled` | order | `previous_status`, `client_id`, `rider_id`, `reason`, `cancelled_by`, `voided_invoices` [{`invoice_id`, `invoice_number`, `amount`}], `balance_reversed` |
 | `invoice.voided` | invoice | `order_id`, `client_id`, `invoice_number`, `amount`, `reason`, `voided_by` |
+| `order.created_by_admin` | order | `client_id`, `salesman_id`, `placed_by`, `expected_delivery_date`, `total` |
+| `order.delivery_updated_by_admin` | order | `from_status` (null = delivered with no rider), `to_status`, `order_status_before`, `rider_id`, `changed_by` |
 
-`*_by` is null when the service role (e.g. an ERP backend job) made the change. Order placement, rider assignment, delivery and invoice creation don't write events yet.
+`*_by` is null when the service role (e.g. an ERP backend job) made the change. Orders placed from the salesman app, rider assignment, the rider's own delivery steps and invoice creation don't write events yet.
 
-**Business rules as database functions.** The ERP will share this database, so rules both apps must obey live in Postgres functions both can call (admin or service role only, one transaction each): `change_order_rider(order, rider)` and `cancel_order(order, reason)`. App code in `lib/` calls them and adds only notifications. New cross-app rules should follow the same pattern.
+**Business rules as database functions.** The ERP will share this database, so rules both apps must obey live in Postgres functions both can call (admin or service role only, one transaction each): `change_order_rider(order, rider)`, `cancel_order(order, reason)`, `admin_create_order(client, salesman, items, delivery_date)` and `admin_update_delivery(order, status)` (refuses "delivered" unless the order has a live invoice; the app raises it first). App code in `lib/` calls them and adds only notifications. New cross-app rules should follow the same pattern.
 
 **Row-level security, in plain terms:**
 - A salesman can `select`/`insert` orders only where `client_id` is one of their own clients, and only `select` their own rows elsewhere.

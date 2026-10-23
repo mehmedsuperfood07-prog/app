@@ -1,0 +1,187 @@
+"use client";
+
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { TriangleAlert } from "lucide-react";
+import { adminCreateOrderAction } from "@/lib/actions/orders";
+import type { OrderProduct } from "@/lib/orders";
+import { formatRs, todayPakistanISO } from "@/lib/format";
+import { useToast } from "@/components/toast";
+import { DeliveryDateField } from "@/components/delivery-date-field";
+import { OrderProductLine } from "@/components/order-product-line";
+import { Button } from "@/components/mobile/button";
+
+// The office's version of the salesman's order screen: same product lines,
+// rates and delivery date, but online (no device queue) and with a choice of
+// which salesman the order is credited to.
+export function AdminOrderForm({
+  client,
+  products,
+  salesmen,
+}: {
+  client: {
+    id: string;
+    name: string;
+    balance: number;
+    creditLimit: number;
+    salesmanId: string | null;
+  };
+  products: OrderProduct[];
+  salesmen: { id: string; full_name: string }[];
+}) {
+  const router = useRouter();
+  const { show } = useToast();
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [prices, setPrices] = useState<Record<string, number>>({});
+  const [deliveryDate, setDeliveryDate] = useState("");
+  const [dateMissing, setDateMissing] = useState(false);
+  const [salesmanId, setSalesmanId] = useState(
+    client.salesmanId && salesmen.some((s) => s.id === client.salesmanId) ? client.salesmanId : "",
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const dateFieldRef = useRef<HTMLDivElement>(null);
+
+  const priceFor = (p: OrderProduct) => prices[p.id] ?? p.price;
+  const totalQty = Object.values(quantities).reduce((s, q) => s + q, 0);
+  const totalRs = products.reduce((sum, p) => sum + (quantities[p.id] ?? 0) * priceFor(p), 0);
+  const overBy =
+    client.creditLimit > 0 && totalQty > 0 ? client.balance + totalRs - client.creditLimit : 0;
+
+  async function handleSubmit() {
+    if (submittingRef.current) return;
+    setError(null);
+    const items = products
+      .map((p) => ({ product_id: p.id, quantity: quantities[p.id] ?? 0, unit_price: priceFor(p) }))
+      .filter((i) => i.quantity > 0);
+    if (items.length === 0) {
+      setError("Add at least one product with a quantity.");
+      return;
+    }
+    if (!deliveryDate || deliveryDate < todayPakistanISO()) {
+      setDeliveryDate("");
+      setDateMissing(true);
+      dateFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    if (!salesmanId) {
+      setError("Choose the salesman this order counts for.");
+      return;
+    }
+
+    submittingRef.current = true;
+    setSubmitting(true);
+    try {
+      const result = await adminCreateOrderAction({
+        clientId: client.id,
+        salesmanId,
+        items,
+        expectedDeliveryDate: deliveryDate,
+      });
+      if (!result.ok) {
+        setError(result.error);
+        submittingRef.current = false;
+        setSubmitting(false);
+        return;
+      }
+      show("Order placed.", "success");
+      router.push(`/admin/orders/${result.orderId}`);
+    } catch {
+      submittingRef.current = false;
+      setSubmitting(false);
+      setError("Couldn't reach the server. Check your connection and try again.");
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      {overBy > 0 && (
+        <div
+          role="status"
+          className="flex items-start gap-2 rounded-2xl bg-zinc-900 px-3.5 py-3 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900"
+        >
+          <TriangleAlert size={17} className="mt-0.5 shrink-0" />
+          <span>
+            This order takes {client.name} <b>{formatRs(overBy)}</b> over their credit limit. You can
+            still place it.
+          </span>
+        </div>
+      )}
+
+      {products.length === 0 ? (
+        <p className="py-8 text-center text-sm text-zinc-500">No active products in the catalog.</p>
+      ) : (
+        <div className="grid items-start gap-2.5 lg:grid-cols-2">
+          {products.map((p) => (
+            <OrderProductLine
+              key={p.id}
+              product={p}
+              listPrice={p.price}
+              price={priceFor(p)}
+              qty={quantities[p.id] ?? 0}
+              onQtyChange={(qty) =>
+                setQuantities((q) => ({ ...q, [p.id]: Math.max(0, Math.min(100000, Math.floor(qty))) }))
+              }
+              onPriceChange={(price) => setPrices((pr) => ({ ...pr, [p.id]: Math.max(0, price) }))}
+            />
+          ))}
+        </div>
+      )}
+
+      <div className="grid items-start gap-3 lg:grid-cols-2">
+        <div ref={dateFieldRef}>
+          <DeliveryDateField
+            value={deliveryDate}
+            invalid={dateMissing && !deliveryDate}
+            onChange={(date) => {
+              setDeliveryDate(date);
+              setDateMissing(false);
+            }}
+          />
+        </div>
+        <label className="block rounded-2xl border border-zinc-200/80 bg-surface p-3.5 shadow-sm dark:border-zinc-800">
+          <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Counts for salesman</span>
+          <span className="mb-2 block text-xs text-zinc-500 dark:text-zinc-400">
+            Normally the client&apos;s own salesman, so their sales figures stay right.
+          </span>
+          <select
+            value={salesmanId}
+            onChange={(e) => setSalesmanId(e.target.value)}
+            aria-label="Salesman this order counts for"
+            className="w-full rounded-xl border border-zinc-300 bg-surface px-3 py-2.5 text-sm dark:border-zinc-700"
+          >
+            <option value="" disabled>
+              Choose salesman…
+            </option>
+            {salesmen.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.full_name}
+                {s.id === client.salesmanId ? " (client's salesman)" : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {error && (
+        <p className="rounded-xl bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900">
+          {error}
+        </p>
+      )}
+
+      <Button
+        type="button"
+        onClick={handleSubmit}
+        disabled={submitting || totalQty === 0}
+        className="w-full py-3.5"
+      >
+        {submitting
+          ? "Placing order…"
+          : totalQty > 0
+            ? `Place order · ${totalQty} item${totalQty === 1 ? "" : "s"} · ${formatRs(totalRs)}`
+            : "Place order"}
+      </Button>
+    </div>
+  );
+}

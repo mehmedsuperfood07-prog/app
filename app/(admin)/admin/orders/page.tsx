@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Inbox, UserRound, Truck } from "lucide-react";
+import { Inbox, Plus, UserRound, Truck } from "lucide-react";
 import {
   getOrderCounts,
   listAdminOrders,
@@ -42,7 +42,19 @@ export default async function AdminOrdersPage({
 
   return (
     <div>
-      <PageHeader title="Orders" subtitle="Everything your salesmen have placed" />
+      <PageHeader
+        title="Orders"
+        subtitle="Everything your salesmen have placed"
+        action={
+          <Link
+            href="/admin/orders/new"
+            className="flex items-center gap-1.5 rounded-full bg-accent px-3.5 py-2 text-sm font-semibold text-accent-foreground shadow-md shadow-accent/25 transition active:scale-95"
+          >
+            <Plus size={16} strokeWidth={2.5} />
+            New order
+          </Link>
+        }
+      />
 
       <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:mx-0 lg:px-0">
         {ORDER_FILTERS.map((f) => {

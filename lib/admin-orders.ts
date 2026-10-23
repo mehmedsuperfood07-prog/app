@@ -2,10 +2,17 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/auth";
-import { getInvoiceDownloadUrl } from "@/lib/invoices";
+import { createInvoiceForOrder, getInvoiceDownloadUrl } from "@/lib/invoices";
 import { deferPush, sendPushToUser } from "@/lib/push";
 import { dbErrorMessage } from "@/lib/errors";
-import type { DeliveryStatus } from "@/lib/deliveries";
+import { formatDeliveryDate, formatRs } from "@/lib/format";
+import {
+  listProductsWithPricingForClient,
+  parseExpectedDeliveryDate,
+  usableLineItems,
+  type OrderLineInput,
+} from "@/lib/orders";
+import type { AdvancedStatus, DeliveryStatus } from "@/lib/deliveries";
 
 export const ORDER_FILTERS = [
   "all",
@@ -122,6 +129,8 @@ export type AdminOrderDetail = {
     creditLimit: number;
   } | null;
   salesmanName: string | null;
+  // Set when someone other than the salesman (the office) entered the order.
+  placedByName: string | null;
   riderId: string | null;
   riderName: string | null;
   deliveryStatus: DeliveryStatus | null;
@@ -154,7 +163,7 @@ export async function getAdminOrderDetail(id: string): Promise<AdminOrderDetail 
   const { data: order } = await supabase
     .from("orders")
     .select(
-      "id, status, created_at, created_offline_at, expected_delivery_date, client_id, salesman_id, rider_id, cancelled_at, cancelled_by, cancel_reason",
+      "id, status, created_at, created_offline_at, expected_delivery_date, client_id, salesman_id, rider_id, cancelled_at, cancelled_by, cancel_reason, placed_by",
     )
     .eq("id", id)
     .maybeSingle();
@@ -221,6 +230,7 @@ export async function getAdminOrderDetail(id: string): Promise<AdminOrderDetail 
         order.rider_id,
         ...(history ?? []).map((h) => h.changed_by),
         order.cancelled_by,
+        order.placed_by,
         ...changes.flatMap((c) => [c.from_rider_id, c.to_rider_id, c.changed_by]),
       ].filter(
         Boolean,
@@ -277,6 +287,7 @@ export async function getAdminOrderDetail(id: string): Promise<AdminOrderDetail 
         }
       : null,
     salesmanName: order.salesman_id ? (names.get(order.salesman_id) ?? null) : null,
+    placedByName: order.placed_by ? (names.get(order.placed_by) ?? "the office") : null,
     riderId: order.rider_id,
     riderName: order.rider_id ? (names.get(order.rider_id) ?? null) : null,
     deliveryStatus: (delivery?.status as DeliveryStatus | undefined) ?? null,
@@ -358,4 +369,106 @@ export async function cancelOrder(orderId: string, reason: string) {
       });
     }
   });
+}
+
+// ------------------------------------------------------------------
+// The office doing a salesman's or a rider's job
+// ------------------------------------------------------------------
+
+async function requireAdmin(action: string) {
+  const caller = await getCurrentProfile();
+  if (!caller || caller.role !== "admin") {
+    throw new Error(`Only an admin can ${action}.`);
+  }
+  return caller;
+}
+
+// Takes an order for any client, credited to a salesman (normally the
+// client's own, so per-salesman sales stay right); the order records the admin
+// as the person who entered it. Same checks as a salesman's order (products
+// must be in the client's active catalog, date required, rates may be
+// discounted), then the admin_create_order database function, which repeats
+// the checks so the ERP can't skip them.
+export async function createOrderAsAdmin(input: {
+  clientId: string;
+  salesmanId: string;
+  items: OrderLineInput[];
+  expectedDeliveryDate: string;
+}): Promise<string> {
+  await requireAdmin("take an order for a client");
+  if (!input.salesmanId) throw new Error("Choose the salesman this order counts for.");
+  const deliveryDate = parseExpectedDeliveryDate(input.expectedDeliveryDate);
+  if (!deliveryDate) throw new Error("Choose a delivery date.");
+  const lineItems = usableLineItems(input.items);
+
+  const validIds = new Set(
+    (await listProductsWithPricingForClient(input.clientId)).map((p) => p.id),
+  );
+  if (lineItems.some((i) => !validIds.has(i.product_id))) {
+    throw new Error("One of the selected products is no longer available.");
+  }
+
+  const supabase = await createClient();
+  const { data: orderId, error } = await supabase.rpc("admin_create_order", {
+    p_client_id: input.clientId,
+    p_salesman_id: input.salesmanId,
+    p_items: lineItems.map((i) => ({
+      product_id: i.product_id,
+      quantity: i.quantity,
+      unit_price: i.unit_price,
+    })),
+    p_expected_delivery_date: deliveryDate,
+  });
+  if (error || !orderId) throw new Error(error ? dbErrorMessage(error) : "Could not create the order.");
+
+  const total = lineItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
+  deferPush(async () => {
+    const admin = createAdminClient();
+    const { data: client } = await admin
+      .from("clients")
+      .select("name")
+      .eq("id", input.clientId)
+      .single();
+    await sendPushToUser(input.salesmanId, {
+      title: "Order placed by the office",
+      body: `${client?.name ?? "A client"} · ${formatRs(total)} · deliver ${formatDeliveryDate(deliveryDate)}`,
+      url: `/salesman/orders/${orderId}`,
+    });
+  });
+
+  return orderId as string;
+}
+
+// Moves a delivery forward for the rider (to any later step), or delivers an
+// order that never had a rider (office pickup). For "delivered" the invoice is
+// raised first if the order has none yet (an order delivered without a rider,
+// or one assigned before invoices moved to assignment): the database refuses
+// to mark an order delivered without one. If marking fails after that, the
+// invoice simply stays with the order, exactly as if a rider had been assigned.
+export async function adminUpdateDelivery(orderId: string, status: AdvancedStatus) {
+  await requireAdmin("update a delivery");
+  if (!["picked_up", "on_the_way", "delivered"].includes(status)) {
+    throw new Error("Choose Picked up, On the way or Delivered.");
+  }
+
+  if (status === "delivered") await createInvoiceForOrder(orderId);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_update_delivery", {
+    p_order_id: orderId,
+    p_status: status,
+  });
+  if (error) throw new Error(dbErrorMessage(error));
+
+  const result = data as { rider_id: string | null; to_status: AdvancedStatus };
+  if (result.rider_id && result.to_status === "delivered") {
+    const riderId = result.rider_id;
+    deferPush(() =>
+      sendPushToUser(riderId, {
+        title: "Delivery completed by the office",
+        body: "An order on your list was marked delivered and has left it.",
+        url: "/rider",
+      }),
+    );
+  }
 }

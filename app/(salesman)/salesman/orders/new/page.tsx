@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Minus, Plus, Search, TriangleAlert, MapPin } from "lucide-react";
+import { Search, TriangleAlert, MapPin } from "lucide-react";
 import { db, type CachedPriceOverride, type CachedProduct } from "@/lib/offline/db";
 import { pullLatestData, queueOrder } from "@/lib/offline/sync";
 import { effectivePrice } from "@/lib/offline/pricing";
@@ -13,7 +13,7 @@ import { DeliveryDateField } from "@/components/delivery-date-field";
 import { PageHeader } from "@/components/mobile/page-header";
 import { CardLink } from "@/components/mobile/card";
 import { Button } from "@/components/mobile/button";
-import { ProductIcon } from "@/components/mobile/product-icon";
+import { OrderProductLine } from "@/components/order-product-line";
 import { Skeleton } from "@/components/mobile/skeleton";
 import { BottomActionBar } from "@/components/mobile/bottom-action-bar";
 
@@ -239,98 +239,17 @@ export default function NewOrderPage() {
         </p>
       ) : (
         <div className="space-y-2.5 pb-24">
-          {activeProducts.map((p) => {
-            const listPrice = effectivePrice(p, clientId, overrides);
-            const price = priceFor(p);
-            const discounted = price !== listPrice;
-            const qty = quantities[p.id] ?? 0;
-            return (
-              <div
-                key={p.id}
-                className={`rounded-2xl border bg-surface p-3.5 shadow-sm transition-colors ${
-                  qty > 0
-                    ? "border-accent/40 bg-accent/5"
-                    : "border-zinc-200/80 dark:border-zinc-800"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <ProductIcon name={p.name} unit={p.unit} />
-                  <div className="min-w-0 flex-1 text-sm">
-                    <div className="font-semibold leading-snug text-zinc-900 dark:text-zinc-50">
-                      {p.name}
-                      {p.variant ? ` — ${p.variant}` : ""}
-                    </div>
-                    <div className="text-zinc-500 dark:text-zinc-400">
-                      {p.pack_size} {p.unit} · list {formatRs(listPrice)}
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setQty(p.id, qty - 1)}
-                      disabled={qty === 0}
-                      aria-label={`Remove one ${p.name}`}
-                      className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 transition active:scale-90 active:bg-zinc-200 disabled:opacity-40 dark:bg-zinc-800 dark:text-zinc-300"
-                    >
-                      <Minus size={16} />
-                    </button>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min="0"
-                      step="1"
-                      value={qty}
-                      onFocus={(e) => e.target.select()}
-                      onChange={(e) => setQty(p.id, Number(e.target.value) || 0)}
-                      aria-label={`Quantity of ${p.name}`}
-                      className="w-11 rounded-md border-0 bg-transparent text-center text-sm font-semibold"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setQty(p.id, qty + 1)}
-                      aria-label={`Add one ${p.name}`}
-                      className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-foreground transition active:scale-90 active:bg-accent/90"
-                    >
-                      <Plus size={16} />
-                    </button>
-                  </div>
-                </div>
-                {qty > 0 && (
-                  <div className="mt-3 flex items-center justify-between gap-3 border-t border-zinc-100 pt-2.5 dark:border-zinc-800">
-                    <label className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-                      Rate
-                      <span className="relative">
-                        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400">
-                          Rs
-                        </span>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          min="0"
-                          step="0.01"
-                          value={price}
-                          onFocus={(e) => e.target.select()}
-                          onChange={(e) => setPrice(p.id, Number(e.target.value) || 0)}
-                          aria-label={`Rate for ${p.name}`}
-                          className={`w-24 rounded-lg border bg-surface py-1.5 pl-7 pr-2 text-sm font-semibold ${
-                            discounted
-                              ? "border-accent text-accent"
-                              : "border-zinc-300 text-zinc-900 dark:border-zinc-700 dark:text-zinc-50"
-                          }`}
-                        />
-                      </span>
-                      {discounted && (
-                        <span className="text-[0.6875rem] font-semibold text-accent">Discounted</span>
-                      )}
-                    </label>
-                    <span className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
-                      {formatRs(qty * price)}
-                    </span>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {activeProducts.map((p) => (
+            <OrderProductLine
+              key={p.id}
+              product={p}
+              listPrice={effectivePrice(p, clientId, overrides)}
+              price={priceFor(p)}
+              qty={quantities[p.id] ?? 0}
+              onQtyChange={(qty) => setQty(p.id, qty)}
+              onPriceChange={(price) => setPrice(p.id, price)}
+            />
+          ))}
 
           <div ref={dateFieldRef}>
             <DeliveryDateField

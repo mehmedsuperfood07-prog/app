@@ -52,13 +52,29 @@ export type OrderLineInput = {
 
 const MAX_LINE_QUANTITY = 100_000;
 
+// Drops empty or nonsensical lines; throws if nothing is left to order.
+export function usableLineItems(items: OrderLineInput[]): OrderLineInput[] {
+  const lineItems = items.filter(
+    (i) =>
+      Number.isFinite(i.quantity) &&
+      i.quantity > 0 &&
+      i.quantity <= MAX_LINE_QUANTITY &&
+      Number.isFinite(i.unit_price) &&
+      i.unit_price >= 0,
+  );
+  if (lineItems.length === 0) {
+    throw new Error("Add at least one product with a quantity.");
+  }
+  return lineItems;
+}
+
 // The date the salesman promised the client ("YYYY-MM-DD"). The order form
 // won't submit without one, but an order queued on a phone before the field
 // existed still reaches us without it, so a missing date is accepted here and
 // stored as null. A real date only has to be a real calendar day and not wildly
 // off: an offline order can reach the server days after it was taken, so
 // recent past dates are fine.
-function parseExpectedDeliveryDate(value: string | null | undefined): string | null {
+export function parseExpectedDeliveryDate(value: string | null | undefined): string | null {
   if (value == null || value === "") return null;
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   const asDate = match && new Date(Date.UTC(+match[1], +match[2] - 1, +match[3]));
@@ -97,17 +113,7 @@ export async function createOrder(
   expectedDeliveryDate?: string | null,
 ) {
   const deliveryDate = parseExpectedDeliveryDate(expectedDeliveryDate);
-  const lineItems = items.filter(
-    (i) =>
-      Number.isFinite(i.quantity) &&
-      i.quantity > 0 &&
-      i.quantity <= MAX_LINE_QUANTITY &&
-      Number.isFinite(i.unit_price) &&
-      i.unit_price >= 0,
-  );
-  if (lineItems.length === 0) {
-    throw new Error("Add at least one product with a quantity.");
-  }
+  const lineItems = usableLineItems(items);
 
   const supabase = await createClient();
   const {

@@ -12,6 +12,7 @@ import {
 } from "@/components/mobile/status-pill";
 import { AssignRiderForm } from "@/components/assign-rider-form";
 import { CancelOrderForm } from "@/components/cancel-order-form";
+import { AdminDeliveryActions } from "@/components/admin-delivery-actions";
 import { StatusPill } from "@/components/mobile/status-pill";
 
 const HISTORY_LABELS: Record<string, string> = {
@@ -68,6 +69,11 @@ export default async function AdminOrderDetailPage({
                 Assign a rider
               </p>
               <AssignRiderForm orderId={order.id} riders={riders} />
+              <AdminDeliveryActions
+                orderId={order.id}
+                orderStatus={order.status}
+                deliveryStatus={order.deliveryStatus}
+              />
             </Card>
           )}
 
@@ -138,6 +144,7 @@ export default async function AdminOrderDetailPage({
             <p className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
               <UserRound size={16} className="shrink-0 text-zinc-400" />
               Taken by {order.salesmanName ?? "an unknown salesman"}
+              {order.placedByName ? ` · entered by ${order.placedByName}` : ""}
             </p>
             {order.riderName && (
               <p className="flex items-center justify-between gap-2 text-zinc-700 dark:text-zinc-300">
@@ -151,6 +158,20 @@ export default async function AdminOrderDetailPage({
               </p>
             )}
           </Card>
+
+          {order.status === "out_for_delivery" && order.deliveryStatus !== "delivered" && (
+            <Card>
+              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Update delivery</p>
+              <p className="mb-2.5 mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                On the rider&apos;s behalf, e.g. when they can&apos;t update it themselves.
+              </p>
+              <AdminDeliveryActions
+                orderId={order.id}
+                orderStatus={order.status}
+                deliveryStatus={order.deliveryStatus}
+              />
+            </Card>
+          )}
 
           {order.status === "out_for_delivery" && order.deliveryStatus !== "delivered" && (
             <Card>
