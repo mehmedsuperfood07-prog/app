@@ -50,6 +50,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     supabase
       .from("invoices")
       .select("amount")
+      .is("voided_at", null)
       .gte("created_at", startOfWeek.toISOString()),
     supabase
       .from("orders")

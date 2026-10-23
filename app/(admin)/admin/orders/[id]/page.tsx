@@ -11,11 +11,14 @@ import {
   ORDER_STATUS_LABEL,
 } from "@/components/mobile/status-pill";
 import { AssignRiderForm } from "@/components/assign-rider-form";
+import { CancelOrderForm } from "@/components/cancel-order-form";
+import { StatusPill } from "@/components/mobile/status-pill";
 
 const HISTORY_LABELS: Record<string, string> = {
   placed: "Order placed",
   out_for_delivery: "Assigned to a rider",
   delivered: "Delivered",
+  cancelled: "Cancelled",
 };
 
 export default async function AdminOrderDetailPage({
@@ -46,6 +49,19 @@ export default async function AdminOrderDetailPage({
 
       <div className="grid items-start gap-3 lg:grid-cols-5">
         <div className="space-y-3 lg:col-span-3">
+          {order.cancellation && (
+            <Card className="text-sm">
+              <p className="font-semibold text-zinc-900 dark:text-zinc-50">This order was cancelled</p>
+              <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                {formatDateTime(order.cancellation.at)}
+                {order.cancellation.by ? ` · ${order.cancellation.by}` : ""}
+              </p>
+              {order.cancellation.reason && (
+                <p className="mt-1.5 text-zinc-700 dark:text-zinc-300">{order.cancellation.reason}</p>
+              )}
+            </Card>
+          )}
+
           {order.status === "placed" && (
             <Card>
               <p className="mb-2.5 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
@@ -129,7 +145,9 @@ export default async function AdminOrderDetailPage({
                   <Truck size={16} className="shrink-0 text-zinc-400" />
                   Rider: {order.riderName}
                 </span>
-                {order.deliveryStatus && <DeliveryStatusPill status={order.deliveryStatus} />}
+                {order.deliveryStatus && order.status !== "cancelled" && (
+                  <DeliveryStatusPill status={order.deliveryStatus} />
+                )}
               </p>
             )}
           </Card>
@@ -189,10 +207,15 @@ export default async function AdminOrderDetailPage({
                   <FileText size={18} />
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                  <p className="flex items-center gap-2 truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">
                     {order.invoice.number}
+                    {order.invoice.voided && <StatusPill>Void</StatusPill>}
                   </p>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  <p
+                    className={`text-xs text-zinc-500 dark:text-zinc-400 ${
+                      order.invoice.voided ? "line-through" : ""
+                    }`}
+                  >
                     {formatRs(order.invoice.amount)}
                   </p>
                 </div>
@@ -247,6 +270,18 @@ export default async function AdminOrderDetailPage({
               </ol>
             )}
           </Card>
+
+          {(order.status === "placed" || order.status === "out_for_delivery") &&
+            order.deliveryStatus !== "delivered" && (
+              <CancelOrderForm
+                orderId={order.id}
+                invoice={
+                  order.invoice && !order.invoice.voided
+                    ? { number: order.invoice.number, amount: order.invoice.amount }
+                    : null
+                }
+              />
+            )}
         </div>
       </div>
 

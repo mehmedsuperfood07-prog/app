@@ -1,9 +1,19 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentProfile } from "@/lib/auth";
 import { getInvoiceDownloadUrl } from "@/lib/invoices";
+import { deferPush, sendPushToUser } from "@/lib/push";
+import { dbErrorMessage } from "@/lib/errors";
 import type { DeliveryStatus } from "@/lib/deliveries";
 
-export const ORDER_FILTERS = ["all", "placed", "out_for_delivery", "delivered"] as const;
+export const ORDER_FILTERS = [
+  "all",
+  "placed",
+  "out_for_delivery",
+  "delivered",
+  "cancelled",
+] as const;
 export type OrderFilter = (typeof ORDER_FILTERS)[number];
 
 export type AdminOrderListItem = {
@@ -37,17 +47,19 @@ export async function getOrderCounts(): Promise<Record<OrderFilter, number>> {
     const q = supabase.from("orders").select("id", { count: "exact", head: true });
     return status ? q.eq("status", status) : q;
   };
-  const [all, placed, out, delivered] = await Promise.all([
+  const [all, placed, out, delivered, cancelled] = await Promise.all([
     count(),
     count("placed"),
     count("out_for_delivery"),
     count("delivered"),
+    count("cancelled"),
   ]);
   return {
     all: all.count ?? 0,
     placed: placed.count ?? 0,
     out_for_delivery: out.count ?? 0,
     delivered: delivered.count ?? 0,
+    cancelled: cancelled.count ?? 0,
   };
 }
 
@@ -127,7 +139,13 @@ export type AdminOrderDetail = {
   // label is set for timeline entries that are not a status change (e.g. a
   // rider change); the page falls back to a label for the status otherwise.
   history: { status: string; label?: string; changedAt: string; changedBy: string | null }[];
-  invoice: { number: string; amount: number; downloadUrl: string | null } | null;
+  cancellation: { at: string; by: string | null; reason: string | null } | null;
+  invoice: {
+    number: string;
+    amount: number;
+    downloadUrl: string | null;
+    voided: { at: string; reason: string | null } | null;
+  } | null;
 };
 
 export async function getAdminOrderDetail(id: string): Promise<AdminOrderDetail | null> {
@@ -136,7 +154,7 @@ export async function getAdminOrderDetail(id: string): Promise<AdminOrderDetail 
   const { data: order } = await supabase
     .from("orders")
     .select(
-      "id, status, created_at, created_offline_at, expected_delivery_date, client_id, salesman_id, rider_id",
+      "id, status, created_at, created_offline_at, expected_delivery_date, client_id, salesman_id, rider_id, cancelled_at, cancelled_by, cancel_reason",
     )
     .eq("id", id)
     .maybeSingle();
@@ -175,8 +193,10 @@ export async function getAdminOrderDetail(id: string): Promise<AdminOrderDetail 
       .maybeSingle(),
     supabase
       .from("invoices")
-      .select("invoice_number, amount, pdf_url")
+      .select("invoice_number, amount, pdf_url, voided_at, void_reason")
       .eq("order_id", id)
+      // The live invoice if there is one, otherwise the most recent void one.
+      .order("voided_at", { ascending: false, nullsFirst: true })
       .limit(1)
       .maybeSingle(),
     supabase
@@ -200,6 +220,7 @@ export async function getAdminOrderDetail(id: string): Promise<AdminOrderDetail 
         order.salesman_id,
         order.rider_id,
         ...(history ?? []).map((h) => h.changed_by),
+        order.cancelled_by,
         ...changes.flatMap((c) => [c.from_rider_id, c.to_rider_id, c.changed_by]),
       ].filter(
         Boolean,
@@ -275,12 +296,66 @@ export async function getAdminOrderDetail(id: string): Promise<AdminOrderDetail 
         changedBy: c.changed_by ? (names.get(c.changed_by) ?? null) : null,
       })),
     ].sort((a, b) => a.changedAt.localeCompare(b.changedAt)),
+    cancellation: order.cancelled_at
+      ? {
+          at: order.cancelled_at,
+          by: order.cancelled_by ? (names.get(order.cancelled_by) ?? null) : null,
+          reason: order.cancel_reason,
+        }
+      : null,
     invoice: invoice
       ? {
           number: invoice.invoice_number,
           amount: invoice.amount,
           downloadUrl: invoice.pdf_url ? await getInvoiceDownloadUrl(invoice.pdf_url) : null,
+          voided: invoice.voided_at ? { at: invoice.voided_at, reason: invoice.void_reason } : null,
         }
       : null,
   };
+}
+
+// Cancels an order that hasn't been delivered and voids its invoice. The rules
+// (admin only, a reason is required, not once delivered, not once money was
+// received, invoice kept but marked void, balance reversed, history and
+// integration events) live in the cancel_order database function so the
+// future ERP behaves identically; this only adds the notifications.
+export async function cancelOrder(orderId: string, reason: string) {
+  const caller = await getCurrentProfile();
+  if (!caller || caller.role !== "admin") {
+    throw new Error("Only an admin can cancel an order.");
+  }
+  if (!reason.trim()) throw new Error("Give a reason for cancelling.");
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("cancel_order", {
+    p_order_id: orderId,
+    p_reason: reason.trim(),
+  });
+  if (error) throw new Error(dbErrorMessage(error));
+
+  const result = data as { previous_status: string; rider_id: string | null };
+  deferPush(async () => {
+    const admin = createAdminClient();
+    const { data: order } = await admin
+      .from("orders")
+      .select("salesman_id, client:clients(name)")
+      .eq("id", orderId)
+      .single();
+    const clientName =
+      (order?.client as unknown as { name: string } | null)?.name ?? "An order";
+    if (result.previous_status === "out_for_delivery" && result.rider_id) {
+      await sendPushToUser(result.rider_id, {
+        title: "Delivery cancelled",
+        body: `${clientName} — do not deliver this order.`,
+        url: "/rider",
+      });
+    }
+    if (order?.salesman_id) {
+      await sendPushToUser(order.salesman_id, {
+        title: "Order cancelled",
+        body: `${clientName} — ${reason.trim()}`,
+        url: `/salesman/orders/${orderId}`,
+      });
+    }
+  });
 }

@@ -93,6 +93,7 @@ orders
   created_offline_at, synced_at, rider_id,
   expected_delivery_date      -- date; required on the salesman's order form,
                               -- null only on orders placed before it existed
+  cancelled_at, cancelled_by, cancel_reason   -- set by cancel_order()
 
 order_items
   order_id, product_id, quantity, unit_price_at_order_time
@@ -106,7 +107,11 @@ deliveries
   order_id, rider_id, status, proof_of_delivery_photo_url, delivered_at
 
 invoices
-  order_id, invoice_number, pdf_url, amount, paid_amount, due_date
+  order_id, invoice_number, pdf_url, amount, paid_amount, due_date,
+  voided_at, voided_by, void_reason
+      -- never deleted; a cancelled order's invoice is marked void and keeps
+      -- its number. At most one live (voided_at is null) invoice per order,
+      -- enforced by a unique index; a cancelled order can't be invoiced.
 
 payments
   client_id, invoice_id, amount, method, recorded_by, recorded_at
@@ -117,6 +122,18 @@ integration_events
       -- or reporting tool reads from; costs nothing to add now,
       -- expensive to retrofit later
 ```
+
+**Integration events written today** (the contract the ERP reads; add to it, never change an existing event's meaning). Written inside the same transaction as the change itself, by the database functions below:
+
+| event_type | entity | payload |
+|---|---|---|
+| `order.rider_changed` | order | `from_rider_id`, `to_rider_id`, `delivery_status_before`, `changed_by` |
+| `order.cancelled` | order | `previous_status`, `client_id`, `rider_id`, `reason`, `cancelled_by`, `voided_invoices` [{`invoice_id`, `invoice_number`, `amount`}], `balance_reversed` |
+| `invoice.voided` | invoice | `order_id`, `client_id`, `invoice_number`, `amount`, `reason`, `voided_by` |
+
+`*_by` is null when the service role (e.g. an ERP backend job) made the change. Order placement, rider assignment, delivery and invoice creation don't write events yet.
+
+**Business rules as database functions.** The ERP will share this database, so rules both apps must obey live in Postgres functions both can call (admin or service role only, one transaction each): `change_order_rider(order, rider)` and `cancel_order(order, reason)`. App code in `lib/` calls them and adds only notifications. New cross-app rules should follow the same pattern.
 
 **Row-level security, in plain terms:**
 - A salesman can `select`/`insert` orders only where `client_id` is one of their own clients, and only `select` their own rows elsewhere.
@@ -134,6 +151,10 @@ integration_events
 **Delivery (rider):** sees orders assigned to them (or filtered to their area), updates status through Picked Up → On the Way → Delivered, optionally photographs proof of delivery. The invoice already exists by then — it is raised when the admin assigns the rider, not when the order is delivered.
 
 **Invoicing:** generated automatically when the admin assigns a rider (the order goes `placed` → `out_for_delivery`), not on delivery, so the office has it to send out with the goods. If it cannot be generated the assignment is undone and the admin retries. Uses `order_items` (the snapshotted prices, not current catalog prices). Client's `current_balance` increases by the invoice amount.
+
+**Changing the rider (admin):** an order that is out for delivery but not delivered can move to another rider. The delivery restarts at "assigned" for the new rider; the invoice and balance don't change. Both riders are notified.
+
+**Cancelling an order (admin):** possible while the order is placed or out for delivery, never once delivered, and not when money has been recorded against its invoice (that needs a refund/credit note, out of scope). A reason is required. The order becomes `cancelled`, its invoice is marked void (kept, number not reused), and the client's balance goes back down by the invoice amount. The rider and salesman are notified. Corrections after delivery (returns, credit notes) are Phase 3.
 
 **Payment recording (admin/office):** logs a payment against a client or a specific invoice; `current_balance` decreases. This is the client ledger — no separate accounting system needed for Phase 1.
 

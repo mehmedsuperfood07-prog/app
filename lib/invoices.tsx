@@ -127,6 +127,7 @@ export type AdminInvoiceRow = {
   paid_amount: number;
   created_at: string;
   pdf_url: string | null;
+  voided_at: string | null;
   client: { id: string; name: string } | null;
 };
 
@@ -135,7 +136,7 @@ export async function listInvoicesForAdmin(): Promise<AdminInvoiceRow[]> {
   const { data } = await supabase
     .from("invoices")
     .select(
-      "id, order_id, invoice_number, amount, paid_amount, created_at, pdf_url, order:orders(client:clients(id, name))",
+      "id, order_id, invoice_number, amount, paid_amount, created_at, pdf_url, voided_at, order:orders(client:clients(id, name))",
     )
     .order("created_at", { ascending: false });
 
@@ -147,6 +148,7 @@ export async function listInvoicesForAdmin(): Promise<AdminInvoiceRow[]> {
     paid_amount: number;
     created_at: string;
     pdf_url: string | null;
+    voided_at: string | null;
     order: { client: { id: string; name: string } | null } | null;
   };
 
@@ -158,6 +160,7 @@ export async function listInvoicesForAdmin(): Promise<AdminInvoiceRow[]> {
     paid_amount: r.paid_amount,
     created_at: r.created_at,
     pdf_url: r.pdf_url,
+    voided_at: r.voided_at,
     client: r.order?.client ?? null,
   }));
 }

@@ -173,10 +173,12 @@ export async function getDeliveryDetail(
 
   const { data: order } = await supabase
     .from("orders")
-    .select("id, client_id, rider_id, expected_delivery_date, deliveries(status)")
+    .select("id, status, client_id, rider_id, expected_delivery_date, deliveries(status)")
     .eq("id", orderId)
     .single();
-  if (!order || order.rider_id !== user.id) return null;
+  // A cancelled order stays on the record with its rider, but it is no longer
+  // a delivery: the rider's link to it just stops working.
+  if (!order || order.rider_id !== user.id || order.status === "cancelled") return null;
 
   // order_items_rider_view (not the order_items table) enforces at the
   // database level that a rider can never read unit_price_at_order_time —
@@ -236,12 +238,17 @@ export async function advanceDelivery(orderId: string): Promise<AdvancedStatus> 
 
   const { data: order } = await supabase
     .from("orders")
-    .select("id, rider_id, client_id, deliveries(id, status)")
+    .select("id, status, rider_id, client_id, deliveries(id, status)")
     .eq("id", orderId)
     .single();
 
   if (!order || order.rider_id !== user.id) {
     throw new Error("This delivery is not assigned to you.");
+  }
+  // The database refuses this too (enforce_delivery_status_transition); this
+  // just gives the rider a clear message instead of a generic error.
+  if (order.status === "cancelled") {
+    throw new Error("This order was cancelled. Do not deliver it.");
   }
 
   const delivery = order.deliveries?.[0];

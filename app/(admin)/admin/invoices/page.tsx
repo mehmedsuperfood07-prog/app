@@ -4,6 +4,7 @@ import { listInvoicesForAdmin, getInvoiceDownloadUrl } from "@/lib/invoices";
 import { formatDate, formatRs } from "@/lib/format";
 import { PageHeader } from "@/components/mobile/page-header";
 import { Card } from "@/components/mobile/card";
+import { StatusPill } from "@/components/mobile/status-pill";
 
 export default async function AdminInvoicesPage() {
   const invoices = await listInvoicesForAdmin();
@@ -14,7 +15,11 @@ export default async function AdminInvoicesPage() {
     })),
   );
 
-  const totalInvoiced = invoices.reduce((sum, i) => sum + i.amount, 0);
+  // Void invoices (from cancelled orders) stay listed for the record but
+  // never count towards what was billed.
+  const live = invoices.filter((i) => !i.voided_at);
+  const voidCount = invoices.length - live.length;
+  const totalInvoiced = live.reduce((sum, i) => sum + i.amount, 0);
 
   return (
     <div>
@@ -22,7 +27,9 @@ export default async function AdminInvoicesPage() {
         title="Invoices"
         subtitle={
           invoices.length > 0
-            ? `${invoices.length} invoice${invoices.length === 1 ? "" : "s"} · ${formatRs(totalInvoiced)} in total`
+            ? `${live.length} invoice${live.length === 1 ? "" : "s"} · ${formatRs(totalInvoiced)} in total${
+                voidCount > 0 ? ` · ${voidCount} void` : ""
+              }`
             : "Generated automatically when you assign a rider to an order"
         }
       />
@@ -52,12 +59,19 @@ export default async function AdminInvoicesPage() {
                   <div className="text-xs text-zinc-500 dark:text-zinc-400">
                     {inv.invoice_number} · {formatDate(inv.created_at)}
                   </div>
-                  <div className="mt-0.5 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
-                    {formatRs(inv.amount)}{" "}
-                    <span className="text-xs font-normal text-zinc-500">
-                      ({formatRs(inv.paid_amount)} paid)
-                    </span>
-                  </div>
+                  {inv.voided_at ? (
+                    <div className="mt-0.5 flex items-center gap-2 text-sm">
+                      <span className="font-semibold text-zinc-400 line-through">{formatRs(inv.amount)}</span>
+                      <StatusPill>Void</StatusPill>
+                    </div>
+                  ) : (
+                    <div className="mt-0.5 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                      {formatRs(inv.amount)}{" "}
+                      <span className="text-xs font-normal text-zinc-500">
+                        ({formatRs(inv.paid_amount)} paid)
+                      </span>
+                    </div>
+                  )}
                 </div>
               </Link>
               {inv.downloadUrl && (

@@ -18,6 +18,7 @@ const FILTER_LABELS: Record<OrderFilter, string> = {
   placed: "Needs a rider",
   out_for_delivery: "Out for delivery",
   delivered: "Delivered",
+  cancelled: "Cancelled",
 };
 
 const cardBase =
@@ -116,7 +117,9 @@ export default async function AdminOrdersPage({
                       <Truck size={12} className="shrink-0" />
                       Rider: {o.riderName}
                     </span>
-                    {o.deliveryStatus && <DeliveryStatusPill status={o.deliveryStatus} />}
+                    {o.deliveryStatus && o.status !== "cancelled" && (
+                      <DeliveryStatusPill status={o.deliveryStatus} />
+                    )}
                   </div>
                 )}
               </Link>
