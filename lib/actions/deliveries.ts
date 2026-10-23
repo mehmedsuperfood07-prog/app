@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { assignRiderToOrder, advanceDelivery } from "@/lib/deliveries";
+import { assignRiderToOrder, advanceDelivery, changeOrderRider } from "@/lib/deliveries";
 import { ok, fail, type ActionResult } from "@/lib/actions/result";
 
 const ADVANCE_MESSAGES = {
@@ -24,6 +24,22 @@ export async function assignRiderAction(formData: FormData): Promise<ActionResul
   revalidatePath("/admin/invoices");
   revalidatePath("/admin");
   return ok("Rider assigned — invoice generated.");
+}
+
+export async function changeRiderAction(formData: FormData): Promise<ActionResult> {
+  const orderId = String(formData.get("order_id") ?? "");
+  const riderId = String(formData.get("rider_id") ?? "");
+
+  try {
+    await changeOrderRider(orderId, riderId);
+  } catch (err) {
+    return fail(err, "Could not change the rider.");
+  }
+
+  revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/admin/orders");
+  revalidatePath("/rider");
+  return ok("Rider changed.");
 }
 
 export async function advanceDeliveryAction(formData: FormData): Promise<ActionResult> {

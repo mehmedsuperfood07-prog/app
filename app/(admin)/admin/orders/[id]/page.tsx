@@ -134,6 +134,21 @@ export default async function AdminOrderDetailPage({
             )}
           </Card>
 
+          {order.status === "out_for_delivery" && order.deliveryStatus !== "delivered" && (
+            <Card>
+              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Change rider</p>
+              <p className="mb-2.5 mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                The invoice stays the same. The new rider starts again from Pick up.
+              </p>
+              <AssignRiderForm
+                orderId={order.id}
+                riders={riders}
+                mode="change"
+                currentRiderId={order.riderId}
+              />
+            </Card>
+          )}
+
           {client && (
             <Card>
               <div className="flex items-baseline justify-between">
@@ -216,7 +231,10 @@ export default async function AdminOrderDetailPage({
                       />
                       <div className="min-w-0 text-sm">
                         <p className="font-medium text-zinc-900 dark:text-zinc-50">
-                          {HISTORY_LABELS[h.status] ?? ORDER_STATUS_LABEL[h.status] ?? h.status}
+                          {h.label ??
+                            HISTORY_LABELS[h.status] ??
+                            ORDER_STATUS_LABEL[h.status] ??
+                            h.status}
                         </p>
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">
                           {formatDateTime(h.changedAt)}

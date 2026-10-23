@@ -110,6 +110,7 @@ export type AdminOrderDetail = {
     creditLimit: number;
   } | null;
   salesmanName: string | null;
+  riderId: string | null;
   riderName: string | null;
   deliveryStatus: DeliveryStatus | null;
   deliveredAt: string | null;
@@ -123,7 +124,9 @@ export type AdminOrderDetail = {
     unitPrice: number;
   }[];
   total: number;
-  history: { status: string; changedAt: string; changedBy: string | null }[];
+  // label is set for timeline entries that are not a status change (e.g. a
+  // rider change); the page falls back to a label for the status otherwise.
+  history: { status: string; label?: string; changedAt: string; changedBy: string | null }[];
   invoice: { number: string; amount: number; downloadUrl: string | null } | null;
 };
 
@@ -145,6 +148,7 @@ export async function getAdminOrderDetail(id: string): Promise<AdminOrderDetail 
     { data: history },
     { data: delivery },
     { data: invoice },
+    { data: riderChanges },
   ] = await Promise.all([
     supabase
       .from("clients")
@@ -175,11 +179,29 @@ export async function getAdminOrderDetail(id: string): Promise<AdminOrderDetail 
       .eq("order_id", id)
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from("integration_events")
+      .select("payload, created_at")
+      .eq("entity_type", "order")
+      .eq("entity_id", id)
+      .eq("event_type", "order.rider_changed")
+      .order("created_at", { ascending: true }),
   ]);
+
+  type RiderChange = { from_rider_id: string | null; to_rider_id: string; changed_by: string | null };
+  const changes = (riderChanges ?? []).map((e) => ({
+    at: e.created_at as string,
+    ...(e.payload as RiderChange),
+  }));
 
   const profileIds = [
     ...new Set(
-      [order.salesman_id, order.rider_id, ...(history ?? []).map((h) => h.changed_by)].filter(
+      [
+        order.salesman_id,
+        order.rider_id,
+        ...(history ?? []).map((h) => h.changed_by),
+        ...changes.flatMap((c) => [c.from_rider_id, c.to_rider_id, c.changed_by]),
+      ].filter(
         Boolean,
       ),
     ),
@@ -234,16 +256,25 @@ export async function getAdminOrderDetail(id: string): Promise<AdminOrderDetail 
         }
       : null,
     salesmanName: order.salesman_id ? (names.get(order.salesman_id) ?? null) : null,
+    riderId: order.rider_id,
     riderName: order.rider_id ? (names.get(order.rider_id) ?? null) : null,
     deliveryStatus: (delivery?.status as DeliveryStatus | undefined) ?? null,
     deliveredAt: delivery?.delivered_at ?? null,
     items: itemRows,
     total: itemRows.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0),
-    history: (history ?? []).map((h) => ({
-      status: h.status,
-      changedAt: h.changed_at,
-      changedBy: h.changed_by ? (names.get(h.changed_by) ?? null) : null,
-    })),
+    history: [
+      ...(history ?? []).map((h) => ({
+        status: h.status as string,
+        changedAt: h.changed_at as string,
+        changedBy: h.changed_by ? (names.get(h.changed_by) ?? null) : null,
+      })),
+      ...changes.map((c) => ({
+        status: "rider_changed",
+        label: `Rider changed: ${(c.from_rider_id && names.get(c.from_rider_id)) || "previous rider"} → ${names.get(c.to_rider_id) ?? "new rider"}`,
+        changedAt: c.at,
+        changedBy: c.changed_by ? (names.get(c.changed_by) ?? null) : null,
+      })),
+    ].sort((a, b) => a.changedAt.localeCompare(b.changedAt)),
     invoice: invoice
       ? {
           number: invoice.invoice_number,

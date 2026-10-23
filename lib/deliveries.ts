@@ -328,7 +328,7 @@ export async function assignRiderToOrder(orderId: string, riderId: string) {
     .update({ rider_id: riderId, status: "out_for_delivery" })
     .eq("id", orderId)
     .eq("status", "placed")
-    .select("client_id, expected_delivery_date");
+    .select("id");
   if (orderError) throw new Error(dbErrorMessage(orderError));
   if (!claimed || claimed.length === 0) {
     throw new Error("This order already has a rider.");
@@ -369,23 +369,56 @@ export async function assignRiderToOrder(orderId: string, riderId: string) {
     .from("order_status_history")
     .insert({ order_id: orderId, status: "out_for_delivery", changed_by: caller.id });
 
-  const clientId = claimed[0].client_id;
-  const deliveryDate = claimed[0].expected_delivery_date as string | null;
+  deferPush(() => notifyRiderOfNewDelivery(riderId, orderId));
+}
+
+// Moves an order that is out for delivery to another rider. The rules (admin
+// only, not yet delivered, delivery restarts at "assigned", the audit event)
+// live in the change_order_rider database function, so the future ERP gets
+// exactly the same behaviour by calling it; this only adds the notifications.
+// The invoice and the client's balance don't change.
+export async function changeOrderRider(orderId: string, riderId: string) {
+  const caller = await getCurrentProfile();
+  if (!caller || caller.role !== "admin") {
+    throw new Error("Only an admin can change the rider.");
+  }
+  if (!riderId) throw new Error("Choose a rider.");
+
+  const supabase = await createClient();
+  const { data: previousRiderId, error } = await supabase.rpc("change_order_rider", {
+    p_order_id: orderId,
+    p_rider_id: riderId,
+  });
+  if (error) throw new Error(dbErrorMessage(error));
+
   deferPush(async () => {
-    const admin = createAdminClient();
-    const { data: client } = await admin
-      .from("clients")
-      .select("name, address")
-      .eq("id", clientId)
-      .single();
-    await sendPushToUser(riderId, {
-      title: "New delivery assigned",
-      body: `${
-        client
-          ? `${client.name}${client.address ? ` · ${client.address}` : ""}`
-          : "A new order is waiting for pickup"
-      }${deliveryDate ? ` · deliver ${formatDeliveryDate(deliveryDate)}` : ""}`,
-      url: `/rider/${orderId}`,
-    });
+    await notifyRiderOfNewDelivery(riderId, orderId);
+    if (previousRiderId) {
+      await sendPushToUser(previousRiderId as string, {
+        title: "Delivery moved",
+        body: "An order was given to another rider and has left your list.",
+        url: "/rider",
+      });
+    }
+  });
+}
+
+async function notifyRiderOfNewDelivery(riderId: string, orderId: string) {
+  const admin = createAdminClient();
+  const { data: order } = await admin
+    .from("orders")
+    .select("expected_delivery_date, client:clients(name, address)")
+    .eq("id", orderId)
+    .single();
+  const client = order?.client as unknown as { name: string; address: string | null } | null;
+  const deliveryDate = (order?.expected_delivery_date ?? null) as string | null;
+  await sendPushToUser(riderId, {
+    title: "New delivery assigned",
+    body: `${
+      client
+        ? `${client.name}${client.address ? ` · ${client.address}` : ""}`
+        : "A new order is waiting for pickup"
+    }${deliveryDate ? ` · deliver ${formatDeliveryDate(deliveryDate)}` : ""}`,
+    url: `/rider/${orderId}`,
   });
 }
