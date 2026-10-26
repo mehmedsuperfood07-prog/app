@@ -175,7 +175,7 @@ export async function getAdminOrderDetail(id: string): Promise<AdminOrderDetail 
     { data: history },
     { data: delivery },
     { data: invoice },
-    { data: riderChanges },
+    { data: events },
   ] = await Promise.all([
     supabase
       .from("clients")
@@ -210,18 +210,30 @@ export async function getAdminOrderDetail(id: string): Promise<AdminOrderDetail 
       .maybeSingle(),
     supabase
       .from("integration_events")
-      .select("payload, created_at")
+      .select("event_type, payload, created_at")
       .eq("entity_type", "order")
       .eq("entity_id", id)
-      .eq("event_type", "order.rider_changed")
+      .in("event_type", ["order.rider_changed", "order.edited"])
       .order("created_at", { ascending: true }),
   ]);
 
+  // Timeline entries that aren't status changes come from the integration
+  // event log: rider changes and edits.
   type RiderChange = { from_rider_id: string | null; to_rider_id: string; changed_by: string | null };
-  const changes = (riderChanges ?? []).map((e) => ({
-    at: e.created_at as string,
-    ...(e.payload as RiderChange),
-  }));
+  type Edit = {
+    edited_by: string | null;
+    before_total: number;
+    after_total: number;
+    before_delivery_date: string | null;
+    after_delivery_date: string | null;
+    voided_invoice: { invoice_number: string } | null;
+  };
+  const changes = (events ?? [])
+    .filter((e) => e.event_type === "order.rider_changed")
+    .map((e) => ({ at: e.created_at as string, ...(e.payload as RiderChange) }));
+  const edits = (events ?? [])
+    .filter((e) => e.event_type === "order.edited")
+    .map((e) => ({ at: e.created_at as string, ...(e.payload as Edit) }));
 
   const profileIds = [
     ...new Set(
@@ -232,6 +244,7 @@ export async function getAdminOrderDetail(id: string): Promise<AdminOrderDetail 
         order.cancelled_by,
         order.placed_by,
         ...changes.flatMap((c) => [c.from_rider_id, c.to_rider_id, c.changed_by]),
+        ...edits.map((e) => e.edited_by),
       ].filter(
         Boolean,
       ),
@@ -305,6 +318,19 @@ export async function getAdminOrderDetail(id: string): Promise<AdminOrderDetail 
         label: `Rider changed: ${(c.from_rider_id && names.get(c.from_rider_id)) || "previous rider"} → ${names.get(c.to_rider_id) ?? "new rider"}`,
         changedAt: c.at,
         changedBy: c.changed_by ? (names.get(c.changed_by) ?? null) : null,
+      })),
+      ...edits.map((e) => ({
+        status: "edited",
+        label:
+          Number(e.before_total) !== Number(e.after_total)
+            ? `Order edited: ${formatRs(Number(e.before_total))} → ${formatRs(Number(e.after_total))}${
+                e.voided_invoice ? ` (invoice ${e.voided_invoice.invoice_number} voided)` : ""
+              }`
+            : e.before_delivery_date !== e.after_delivery_date && e.after_delivery_date
+              ? `Delivery date changed to ${formatDeliveryDate(e.after_delivery_date)}`
+              : "Order edited",
+        changedAt: e.at,
+        changedBy: e.edited_by ? (names.get(e.edited_by) ?? null) : null,
       })),
     ].sort((a, b) => a.changedAt.localeCompare(b.changedAt)),
     cancellation: order.cancelled_at

@@ -1,5 +1,18 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MapPin, Phone, UserRound, Truck, Download, FileText, CalendarDays } from "lucide-react";
+import {
+  MapPin,
+  Phone,
+  UserRound,
+  Truck,
+  Download,
+  FileText,
+  CalendarDays,
+  Pencil,
+} from "lucide-react";
+import { ActionForm } from "@/components/action-form";
+import { SubmitButton } from "@/components/mobile/submit-button";
+import { generateInvoiceAction } from "@/lib/actions/orders";
 import { getAdminOrderDetail } from "@/lib/admin-orders";
 import { listActiveRiders } from "@/lib/staff";
 import { describeDeliveryDate, formatDateTime, formatRs, isDeliveryOverdue } from "@/lib/format";
@@ -32,6 +45,13 @@ export default async function AdminOrderDetailPage({
   if (!order) notFound();
 
   const { client } = order;
+  const editable =
+    (order.status === "placed" || order.status === "out_for_delivery") &&
+    order.deliveryStatus !== "delivered";
+  // An order out for delivery normally has its invoice; it can lack one only
+  // if an edit voided the old invoice and the new one failed to generate.
+  const missingInvoice =
+    order.status === "out_for_delivery" && editable && (!order.invoice || !!order.invoice.voided);
   const overLimit = client && client.creditLimit > 0 && client.balance > client.creditLimit;
   const usedPct =
     client && client.creditLimit > 0
@@ -103,6 +123,15 @@ export default async function AdminOrderDetailPage({
               <span className="text-sm font-medium text-white/85">Order total</span>
               <span className="text-lg font-bold">{formatRs(order.total)}</span>
             </div>
+            {editable && (
+              <Link
+                href={`/admin/orders/${order.id}/edit`}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-full border border-zinc-300 py-2.5 text-sm font-semibold text-zinc-700 active:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:active:bg-zinc-900"
+              >
+                <Pencil size={15} />
+                Edit order
+              </Link>
+            )}
           </div>
         </div>
 
@@ -218,6 +247,21 @@ export default async function AdminOrderDetailPage({
               ) : (
                 <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">No credit limit set</p>
               )}
+            </Card>
+          )}
+
+          {missingInvoice && (
+            <Card>
+              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">No invoice yet</p>
+              <p className="mb-2.5 mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                This order is out for delivery without a current invoice.
+              </p>
+              <ActionForm action={generateInvoiceAction}>
+                <input type="hidden" name="order_id" value={order.id} />
+                <SubmitButton variant="compact" pendingLabel="Generating…">
+                  Generate invoice
+                </SubmitButton>
+              </ActionForm>
             </Card>
           )}
 

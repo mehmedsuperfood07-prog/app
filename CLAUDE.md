@@ -33,9 +33,9 @@ Built for a **medium-sized team**: roughly 4–10 salesmen and several delivery 
 
 | Role | Does | Does NOT do |
 |---|---|---|
-| **Salesman** | Takes orders from their assigned clients (in-person, on their phone), can add a new client, views their own order history | Cannot edit prices, cannot see other salesmen's clients or orders, cannot see the client ledger's full history — only outstanding balance at order time |
+| **Salesman** | Takes orders from their assigned clients (in-person, on their phone), can add a new client, views their own order history, can edit their own order (products, quantities, rates, date) until a rider is assigned | Cannot edit prices, cannot see other salesmen's clients or orders, cannot see the client ledger's full history — only outstanding balance at order time |
 | **Rider (delivery)** | Sees orders assigned to them, updates status (Picked Up → On the Way → Delivered), captures proof of delivery | Cannot create or edit orders, cannot see pricing or ledger details |
-| **Admin/Office** | Manages product catalog & prices, manages client accounts & credit terms, manages price overrides, assigns salesmen/riders to areas, sees everything — all orders, invoices, ledgers, reports. Can also do the salesman's and rider's jobs from the admin screens: take an order for any client (credited to a salesman, normally the client's own), and move a delivery forward or mark it delivered on the rider's behalf — including delivering an order with no rider (client collected it) | — |
+| **Admin/Office** | Manages product catalog & prices, manages client accounts & credit terms, manages price overrides, assigns salesmen/riders to areas, sees everything — all orders, invoices, ledgers, reports. Can also do the salesman's and rider's jobs from the admin screens: take an order for any client (credited to a salesman, normally the client's own), edit any order until it is delivered, and move a delivery forward or mark it delivered on the rider's behalf — including delivering an order with no rider (client collected it) | — |
 
 No public sign-up screen. Admin creates every staff account (see Auth, below).
 
@@ -133,11 +133,12 @@ integration_events
 | `order.cancelled` | order | `previous_status`, `client_id`, `rider_id`, `reason`, `cancelled_by`, `voided_invoices` [{`invoice_id`, `invoice_number`, `amount`}], `balance_reversed` |
 | `invoice.voided` | invoice | `order_id`, `client_id`, `invoice_number`, `amount`, `reason`, `voided_by` |
 | `order.created_by_admin` | order | `client_id`, `salesman_id`, `placed_by`, `expected_delivery_date`, `total` |
+| `order.edited` | order | `client_id`, `order_status`, `edited_by`, `before_items`/`after_items` [{`product_id`, `quantity`, `unit_price`}], `before_total`, `after_total`, `before_delivery_date`, `after_delivery_date`, `voided_invoice` ({`invoice_id`, `invoice_number`, `amount`} or null) |
 | `order.delivery_updated_by_admin` | order | `from_status` (null = delivered with no rider), `to_status`, `order_status_before`, `rider_id`, `changed_by` |
 
 `*_by` is null when the service role (e.g. an ERP backend job) made the change. Orders placed from the salesman app, rider assignment, the rider's own delivery steps and invoice creation don't write events yet.
 
-**Business rules as database functions.** The ERP will share this database, so rules both apps must obey live in Postgres functions both can call (admin or service role only, one transaction each): `change_order_rider(order, rider)`, `cancel_order(order, reason)`, `admin_create_order(client, salesman, items, delivery_date)` and `admin_update_delivery(order, status)` (refuses "delivered" unless the order has a live invoice; the app raises it first). App code in `lib/` calls them and adds only notifications. New cross-app rules should follow the same pattern.
+**Business rules as database functions.** The ERP will share this database, so rules both apps must obey live in Postgres functions both can call (admin or service role only, one transaction each): `change_order_rider(order, rider)`, `cancel_order(order, reason)`, `admin_create_order(client, salesman, items, delivery_date)`, `edit_order(order, items, delivery_date)` (also callable by the order's salesman while it is placed) and `admin_update_delivery(order, status)` (refuses "delivered" unless the order has a live invoice; the app raises it first). App code in `lib/` calls them and adds only notifications. New cross-app rules should follow the same pattern.
 
 **Row-level security, in plain terms:**
 - A salesman can `select`/`insert` orders only where `client_id` is one of their own clients, and only `select` their own rows elsewhere.
@@ -159,6 +160,8 @@ integration_events
 **Changing the rider (admin):** an order that is out for delivery but not delivered can move to another rider. The delivery restarts at "assigned" for the new rider; the invoice and balance don't change. Both riders are notified.
 
 **Cancelling an order (admin):** possible while the order is placed or out for delivery, never once delivered, and not when money has been recorded against its invoice (that needs a refund/credit note, out of scope). A reason is required. The order becomes `cancelled`, its invoice is marked void (kept, number not reused), and the client's balance goes back down by the invoice amount. The rider and salesman are notified. Corrections after delivery (returns, credit notes) are Phase 3.
+
+**Editing an order:** the salesman can change his own order (products, quantities, rates, delivery date) until a rider is assigned; the admin can change any order until it is delivered. Not the client (cancel and re-place instead). If the products, quantities or rates of an invoiced order change, the old invoice is marked void and its amount comes off the balance, and a new invoice (new number) is raised for the new total; changing only the date keeps the invoice. An invoice with a payment recorded against it blocks the edit. "Nothing was changed" is refused. Every edit logs `order.edited` with the lines before and after and shows in the order timeline; the rider (if any), the salesman or the office is notified.
 
 **Payment recording (admin/office):** logs a payment against a client or a specific invoice; `current_balance` decreases. This is the client ledger — no separate accounting system needed for Phase 1.
 

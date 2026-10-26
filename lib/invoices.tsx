@@ -30,10 +30,14 @@ import { formatDate } from "@/lib/format";
 export async function createInvoiceForOrder(orderId: string) {
   const admin = createAdminClient();
 
+  // Only a live invoice counts: an order whose invoice was voided because its
+  // lines were edited needs a fresh one. (A cancelled order's invoice is void
+  // too, but the database refuses to invoice a cancelled order at all.)
   const { data: existing } = await admin
     .from("invoices")
     .select("id")
     .eq("order_id", orderId)
+    .is("voided_at", null)
     .limit(1);
   if (existing && existing.length > 0) return;
 

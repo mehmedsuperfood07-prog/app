@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { adminUpdateDelivery, cancelOrder, createOrderAsAdmin } from "@/lib/admin-orders";
+import { getCurrentProfile } from "@/lib/auth";
+import { createInvoiceForOrder } from "@/lib/invoices";
+import { editOrder, type OrderLineInput } from "@/lib/orders";
 import type { AdvancedStatus } from "@/lib/deliveries";
-import type { OrderLineInput } from "@/lib/orders";
 import { ok, fail, type ActionResult } from "@/lib/actions/result";
 
 export async function cancelOrderAction(formData: FormData): Promise<ActionResult> {
@@ -25,27 +27,86 @@ export async function cancelOrderAction(formData: FormData): Promise<ActionResul
   return ok("Order cancelled.");
 }
 
-// Called directly from the admin order form (not a <form> post), because the
-// cart is a list of lines rather than flat fields.
-export async function adminCreateOrderAction(input: {
-  clientId: string;
-  salesmanId: string;
+// The shared order form (components/order-form.tsx) calls these directly
+// rather than posting a <form>, because the cart is a list of lines. The page
+// binds the client or order id first, so the form only sends the cart.
+export type OrderFormInput = {
   items: OrderLineInput[];
   expectedDeliveryDate: string;
-}): Promise<{ ok: true; orderId: string } | { ok: false; error: string }> {
+  salesmanId?: string;
+};
+export type OrderFormResult =
+  | { ok: true; orderId: string; message: string; warning?: string }
+  | { ok: false; error: string };
+
+const errorText = (err: unknown, fallback: string) =>
+  err instanceof Error && err.message ? err.message : fallback;
+
+export async function adminCreateOrderAction(
+  clientId: string,
+  input: OrderFormInput,
+): Promise<OrderFormResult> {
   let orderId: string;
   try {
-    orderId = await createOrderAsAdmin(input);
+    orderId = await createOrderAsAdmin({
+      clientId,
+      salesmanId: input.salesmanId ?? "",
+      items: input.items,
+      expectedDeliveryDate: input.expectedDeliveryDate,
+    });
   } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error && err.message ? err.message : "Could not place the order.",
-    };
+    return { ok: false, error: errorText(err, "Could not place the order.") };
   }
 
   revalidatePath("/admin/orders");
   revalidatePath("/admin");
-  return { ok: true, orderId };
+  return { ok: true, orderId, message: "Order placed." };
+}
+
+export async function editOrderAction(
+  orderId: string,
+  input: OrderFormInput,
+): Promise<OrderFormResult> {
+  let result: Awaited<ReturnType<typeof editOrder>>;
+  try {
+    result = await editOrder(orderId, {
+      items: input.items,
+      expectedDeliveryDate: input.expectedDeliveryDate,
+    });
+  } catch (err) {
+    return { ok: false, error: errorText(err, "Could not save the changes.") };
+  }
+
+  revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/admin/orders");
+  revalidatePath("/admin/invoices");
+  revalidatePath("/admin");
+  revalidatePath(`/salesman/orders/${orderId}`);
+  revalidatePath("/rider");
+  return {
+    ok: true,
+    orderId,
+    message: result.newInvoice ? "Order updated — new invoice generated." : "Order updated.",
+    warning: result.invoiceWarning ?? undefined,
+  };
+}
+
+// For an order out for delivery whose invoice was voided by an edit and the
+// replacement couldn't be generated at the time.
+export async function generateInvoiceAction(formData: FormData): Promise<ActionResult> {
+  const orderId = String(formData.get("order_id") ?? "");
+  try {
+    const caller = await getCurrentProfile();
+    if (!caller || caller.role !== "admin") throw new Error("Only an admin can generate an invoice.");
+    await createInvoiceForOrder(orderId);
+  } catch (err) {
+    return fail(err, "Could not generate the invoice.");
+  }
+
+  revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/admin/invoices");
+  revalidatePath("/admin");
+  return ok("Invoice generated.");
 }
 
 const DELIVERY_MESSAGES: Record<AdvancedStatus, string> = {

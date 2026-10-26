@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Pencil } from "lucide-react";
 import { getOrderDetail } from "@/lib/orders";
 import { formatDateTime, formatRs } from "@/lib/format";
 import { PageHeader } from "@/components/mobile/page-header";
@@ -70,6 +72,21 @@ export default async function OrderDetailPage({
         <span className="text-sm font-medium text-white/85">Total</span>
         <span className="text-lg font-bold">{formatRs(total)}</span>
       </div>
+
+      {order.status === "placed" && (
+        <Link
+          href={`/salesman/orders/${order.id}/edit`}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-full border border-zinc-300 py-3 text-sm font-semibold text-zinc-700 active:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:active:bg-zinc-900"
+        >
+          <Pencil size={15} />
+          Edit order
+        </Link>
+      )}
+      {order.status === "out_for_delivery" && (
+        <p className="mt-3 text-center text-xs text-zinc-500 dark:text-zinc-400">
+          A rider has this order now. To change it, call the office.
+        </p>
+      )}
     </div>
   );
 }

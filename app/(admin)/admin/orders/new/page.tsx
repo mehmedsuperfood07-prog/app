@@ -6,7 +6,8 @@ import { listProductsWithPricingForClient } from "@/lib/orders";
 import { formatRs } from "@/lib/format";
 import { PageHeader } from "@/components/mobile/page-header";
 import { CardLink } from "@/components/mobile/card";
-import { AdminOrderForm } from "@/components/admin-order-form";
+import { OrderForm } from "@/components/order-form";
+import { adminCreateOrderAction } from "@/lib/actions/orders";
 
 export default async function AdminNewOrderPage({
   searchParams,
@@ -88,9 +89,8 @@ export default async function AdminNewOrderPage({
         backHref="/admin/orders/new"
         backLabel="Choose a different client"
       />
-      <AdminOrderForm
+      <OrderForm
         client={{
-          id: client.id,
           name: client.name,
           balance: client.current_balance,
           creditLimit: client.credit_limit,
@@ -98,6 +98,8 @@ export default async function AdminNewOrderPage({
         }}
         products={products}
         salesmen={salesmen}
+        action={adminCreateOrderAction.bind(null, client.id)}
+        redirectBase="/admin/orders/"
       />
     </div>
   );

@@ -1,6 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { deferPush, sendPushToRole } from "@/lib/push";
+import { getCurrentProfile } from "@/lib/auth";
+import { createInvoiceForOrder } from "@/lib/invoices";
+import { dbErrorMessage } from "@/lib/errors";
+import { deferPush, sendPushToRole, sendPushToUser } from "@/lib/push";
 import { addDaysToISODate, formatDeliveryDate, formatRs, todayPakistanISO } from "@/lib/format";
 
 export type OrderProduct = {
@@ -226,4 +229,188 @@ export async function getOrderDetail(
     .eq("id", orderId)
     .single();
   return data as unknown as OrderDetail | null;
+}
+
+// ------------------------------------------------------------------
+// Editing an order (the salesman until a rider is assigned, the office
+// until it is delivered — the edit_order database function decides)
+// ------------------------------------------------------------------
+
+export type OrderForEditing = {
+  id: string;
+  status: string;
+  expectedDeliveryDate: string | null;
+  client: { id: string; name: string; balance: number; creditLimit: number };
+  // Every product the form should offer: the client's active catalog, plus any
+  // product already on the order that has since been switched off.
+  products: OrderProduct[];
+  lines: { productId: string; quantity: number; unitPrice: number }[];
+  // The live invoice, if the order has one (only an admin can see invoices;
+  // a salesman's editable orders never have one yet).
+  invoice: { number: string; amount: number } | null;
+};
+
+export async function getOrderForEditing(orderId: string): Promise<OrderForEditing | null> {
+  const supabase = await createClient();
+  const { data: order } = await supabase
+    .from("orders")
+    .select(
+      "id, status, expected_delivery_date, client:clients(id, name, current_balance, credit_limit), order_items(quantity, unit_price_at_order_time, product:products(id, name, variant, unit, pack_size, default_price))",
+    )
+    .eq("id", orderId)
+    .maybeSingle();
+  if (!order) return null;
+
+  type Row = {
+    id: string;
+    status: string;
+    expected_delivery_date: string | null;
+    client: { id: string; name: string; current_balance: number; credit_limit: number } | null;
+    order_items: {
+      quantity: number;
+      unit_price_at_order_time: number;
+      product: {
+        id: string;
+        name: string;
+        variant: string | null;
+        unit: string;
+        pack_size: string;
+        default_price: number;
+      } | null;
+    }[];
+  };
+  const o = order as unknown as Row;
+  if (!o.client) return null;
+
+  const [catalog, { data: invoice }] = await Promise.all([
+    listProductsWithPricingForClient(o.client.id),
+    supabase
+      .from("invoices")
+      .select("invoice_number, amount")
+      .eq("order_id", orderId)
+      .is("voided_at", null)
+      .maybeSingle(),
+  ]);
+  const inCatalog = new Set(catalog.map((p) => p.id));
+  const switchedOff = o.order_items
+    .map((i) => i.product)
+    .filter((p): p is NonNullable<typeof p> => !!p && !inCatalog.has(p.id))
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      variant: p.variant,
+      unit: p.unit,
+      pack_size: p.pack_size,
+      price: p.default_price,
+    }));
+
+  return {
+    id: o.id,
+    status: o.status,
+    expectedDeliveryDate: o.expected_delivery_date,
+    client: {
+      id: o.client.id,
+      name: o.client.name,
+      balance: o.client.current_balance,
+      creditLimit: o.client.credit_limit,
+    },
+    products: [...catalog, ...switchedOff],
+    lines: o.order_items
+      .filter((i) => i.product)
+      .map((i) => ({
+        productId: i.product!.id,
+        quantity: i.quantity,
+        unitPrice: i.unit_price_at_order_time,
+      })),
+    invoice: invoice ? { number: invoice.invoice_number, amount: invoice.amount } : null,
+  };
+}
+
+type EditResult = {
+  status: string;
+  client_id: string;
+  salesman_id: string;
+  rider_id: string | null;
+  before_total: number;
+  after_total: number;
+  lines_changed: boolean;
+  voided_invoice: { invoice_number: string; amount: number } | null;
+};
+
+// Same checks as placing an order, then the edit_order database function,
+// which decides who may edit what and, for an invoiced order, voids the old
+// invoice and takes it off the balance. A fresh invoice for the new lines is
+// raised straight after. If that fails the edit still stands and the order
+// simply has no invoice until the office presses "Generate invoice" on it
+// (marking it delivered raises one too), so the caller gets a warning, not an
+// error.
+export async function editOrder(
+  orderId: string,
+  input: { items: OrderLineInput[]; expectedDeliveryDate: string },
+): Promise<{ invoiceWarning: string | null; newInvoice: boolean }> {
+  const caller = await getCurrentProfile();
+  if (!caller) throw new Error("Not signed in.");
+  const deliveryDate = parseExpectedDeliveryDate(input.expectedDeliveryDate);
+  if (!deliveryDate) throw new Error("Choose a delivery date.");
+  const lineItems = usableLineItems(input.items);
+
+  const current = await getOrderForEditing(orderId);
+  if (!current) throw new Error("Order not found.");
+  const allowed = new Set(current.products.map((p) => p.id));
+  if (lineItems.some((i) => !allowed.has(i.product_id))) {
+    throw new Error("One of the selected products is no longer available.");
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("edit_order", {
+    p_order_id: orderId,
+    p_items: lineItems.map((i) => ({
+      product_id: i.product_id,
+      quantity: i.quantity,
+      unit_price: i.unit_price,
+    })),
+    p_expected_delivery_date: deliveryDate,
+  });
+  if (error) throw new Error(dbErrorMessage(error));
+  const result = data as EditResult;
+
+  let invoiceWarning: string | null = null;
+  if (result.voided_invoice) {
+    try {
+      await createInvoiceForOrder(orderId);
+    } catch (err) {
+      invoiceWarning = `The order was changed, but the new invoice could not be generated${
+        err instanceof Error && err.message ? ` (${err.message})` : ""
+      }. Open the order and tap "Generate invoice".`;
+    }
+  }
+
+  const clientName = current.client.name;
+  const change = `${formatRs(Number(result.before_total))} → ${formatRs(Number(result.after_total))}`;
+  deferPush(async () => {
+    if (caller.role === "admin") {
+      if (result.salesman_id) {
+        await sendPushToUser(result.salesman_id, {
+          title: "Order changed by the office",
+          body: `${clientName} · ${change}`,
+          url: `/salesman/orders/${orderId}`,
+        });
+      }
+    } else {
+      await sendPushToRole("admin", {
+        title: "Order edited",
+        body: `${clientName} · ${change}`,
+        url: `/admin/orders/${orderId}`,
+      });
+    }
+    if (result.status === "out_for_delivery" && result.rider_id) {
+      await sendPushToUser(result.rider_id, {
+        title: "Order changed",
+        body: `${clientName} — check the items before you deliver.`,
+        url: `/rider/${orderId}`,
+      });
+    }
+  });
+
+  return { invoiceWarning, newInvoice: !!result.voided_invoice && !invoiceWarning };
 }

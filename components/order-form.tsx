@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TriangleAlert } from "lucide-react";
-import { adminCreateOrderAction } from "@/lib/actions/orders";
+import type { OrderFormInput, OrderFormResult } from "@/lib/actions/orders";
 import type { OrderProduct } from "@/lib/orders";
 import { formatRs, todayPakistanISO } from "@/lib/format";
 import { useToast } from "@/components/toast";
@@ -11,32 +11,54 @@ import { DeliveryDateField } from "@/components/delivery-date-field";
 import { OrderProductLine } from "@/components/order-product-line";
 import { Button } from "@/components/mobile/button";
 
-// The office's version of the salesman's order screen: same product lines,
-// rates and delivery date, but online (no device queue) and with a choice of
-// which salesman the order is credited to.
-export function AdminOrderForm({
+// An online order form: the office taking a new order, or anyone editing an
+// existing one. (The salesman's own new-order screen is separate because it
+// works offline from the device's copy of the catalog.) The page binds the
+// client or order id into `action`, so this only sends the cart.
+export function OrderForm({
   client,
   products,
+  action,
+  redirectBase,
   salesmen,
+  initial,
+  alreadyCharged = 0,
+  submitLabel = "Place order",
+  pendingLabel = "Placing order…",
+  refreshDeviceCache = false,
 }: {
-  client: {
-    id: string;
-    name: string;
-    balance: number;
-    creditLimit: number;
-    salesmanId: string | null;
-  };
+  client: { name: string; balance: number; creditLimit: number; salesmanId?: string | null };
   products: OrderProduct[];
-  salesmen: { id: string; full_name: string }[];
+  action: (input: OrderFormInput) => Promise<OrderFormResult>;
+  // Where to go afterwards: `${redirectBase}${orderId}`.
+  redirectBase: string;
+  // Shown as a "Counts for salesman" picker when given (the office's new order).
+  salesmen?: { id: string; full_name: string }[];
+  initial?: {
+    lines: { productId: string; quantity: number; unitPrice: number }[];
+    deliveryDate: string | null;
+  };
+  // What this order already adds to the client's balance (its live invoice),
+  // so the credit warning doesn't count it twice when editing.
+  alreadyCharged?: number;
+  submitLabel?: string;
+  pendingLabel?: string;
+  // The salesman app keeps a copy of his orders on the phone; refresh it.
+  refreshDeviceCache?: boolean;
 }) {
   const router = useRouter();
   const { show } = useToast();
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const [prices, setPrices] = useState<Record<string, number>>({});
-  const [deliveryDate, setDeliveryDate] = useState("");
+  const [quantities, setQuantities] = useState<Record<string, number>>(() =>
+    Object.fromEntries((initial?.lines ?? []).map((l) => [l.productId, l.quantity])),
+  );
+  const [prices, setPrices] = useState<Record<string, number>>(() =>
+    Object.fromEntries((initial?.lines ?? []).map((l) => [l.productId, l.unitPrice])),
+  );
+  const initialDate = initial?.deliveryDate ?? "";
+  const [deliveryDate, setDeliveryDate] = useState(initialDate);
   const [dateMissing, setDateMissing] = useState(false);
   const [salesmanId, setSalesmanId] = useState(
-    client.salesmanId && salesmen.some((s) => s.id === client.salesmanId) ? client.salesmanId : "",
+    client.salesmanId && salesmen?.some((s) => s.id === client.salesmanId) ? client.salesmanId : "",
   );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -47,7 +69,9 @@ export function AdminOrderForm({
   const totalQty = Object.values(quantities).reduce((s, q) => s + q, 0);
   const totalRs = products.reduce((sum, p) => sum + (quantities[p.id] ?? 0) * priceFor(p), 0);
   const overBy =
-    client.creditLimit > 0 && totalQty > 0 ? client.balance + totalRs - client.creditLimit : 0;
+    client.creditLimit > 0 && totalQty > 0
+      ? client.balance - alreadyCharged + totalRs - client.creditLimit
+      : 0;
 
   async function handleSubmit() {
     if (submittingRef.current) return;
@@ -59,13 +83,15 @@ export function AdminOrderForm({
       setError("Add at least one product with a quantity.");
       return;
     }
-    if (!deliveryDate || deliveryDate < todayPakistanISO()) {
+    // A date already on the order may be kept even if it has passed; a newly
+    // chosen one must be today or later.
+    if (!deliveryDate || (deliveryDate !== initialDate && deliveryDate < todayPakistanISO())) {
       setDeliveryDate("");
       setDateMissing(true);
       dateFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
-    if (!salesmanId) {
+    if (salesmen && !salesmanId) {
       setError("Choose the salesman this order counts for.");
       return;
     }
@@ -73,11 +99,10 @@ export function AdminOrderForm({
     submittingRef.current = true;
     setSubmitting(true);
     try {
-      const result = await adminCreateOrderAction({
-        clientId: client.id,
-        salesmanId,
+      const result = await action({
         items,
         expectedDeliveryDate: deliveryDate,
+        ...(salesmen ? { salesmanId } : {}),
       });
       if (!result.ok) {
         setError(result.error);
@@ -85,8 +110,12 @@ export function AdminOrderForm({
         setSubmitting(false);
         return;
       }
-      show("Order placed.", "success");
-      router.push(`/admin/orders/${result.orderId}`);
+      if (refreshDeviceCache) {
+        await import("@/lib/offline/sync").then((m) => m.pullLatestData()).catch(() => {});
+      }
+      if (result.warning) show(result.warning, "error");
+      else show(result.message, "success");
+      router.push(`${redirectBase}${result.orderId}`);
     } catch {
       submittingRef.current = false;
       setSubmitting(false);
@@ -104,7 +133,7 @@ export function AdminOrderForm({
           <TriangleAlert size={17} className="mt-0.5 shrink-0" />
           <span>
             This order takes {client.name} <b>{formatRs(overBy)}</b> over their credit limit. You can
-            still place it.
+            still save it.
           </span>
         </div>
       )}
@@ -140,28 +169,30 @@ export function AdminOrderForm({
             }}
           />
         </div>
-        <label className="block rounded-2xl border border-zinc-200/80 bg-surface p-3.5 shadow-sm dark:border-zinc-800">
-          <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Counts for salesman</span>
-          <span className="mb-2 block text-xs text-zinc-500 dark:text-zinc-400">
-            Normally the client&apos;s own salesman, so their sales figures stay right.
-          </span>
-          <select
-            value={salesmanId}
-            onChange={(e) => setSalesmanId(e.target.value)}
-            aria-label="Salesman this order counts for"
-            className="w-full rounded-xl border border-zinc-300 bg-surface px-3 py-2.5 text-sm dark:border-zinc-700"
-          >
-            <option value="" disabled>
-              Choose salesman…
-            </option>
-            {salesmen.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.full_name}
-                {s.id === client.salesmanId ? " (client's salesman)" : ""}
+        {salesmen && (
+          <label className="block rounded-2xl border border-zinc-200/80 bg-surface p-3.5 shadow-sm dark:border-zinc-800">
+            <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Counts for salesman</span>
+            <span className="mb-2 block text-xs text-zinc-500 dark:text-zinc-400">
+              Normally the client&apos;s own salesman, so their sales figures stay right.
+            </span>
+            <select
+              value={salesmanId}
+              onChange={(e) => setSalesmanId(e.target.value)}
+              aria-label="Salesman this order counts for"
+              className="w-full rounded-xl border border-zinc-300 bg-surface px-3 py-2.5 text-sm dark:border-zinc-700"
+            >
+              <option value="" disabled>
+                Choose salesman…
               </option>
-            ))}
-          </select>
-        </label>
+              {salesmen.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.full_name}
+                  {s.id === client.salesmanId ? " (client's salesman)" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
 
       {error && (
@@ -177,10 +208,10 @@ export function AdminOrderForm({
         className="w-full py-3.5"
       >
         {submitting
-          ? "Placing order…"
+          ? pendingLabel
           : totalQty > 0
-            ? `Place order · ${totalQty} item${totalQty === 1 ? "" : "s"} · ${formatRs(totalRs)}`
-            : "Place order"}
+            ? `${submitLabel} · ${totalQty} item${totalQty === 1 ? "" : "s"} · ${formatRs(totalRs)}`
+            : submitLabel}
       </Button>
     </div>
   );
