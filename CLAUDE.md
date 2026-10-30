@@ -136,7 +136,18 @@ integration_events
 | `order.edited` | order | `client_id`, `order_status`, `edited_by`, `before_items`/`after_items` [{`product_id`, `quantity`, `unit_price`}], `before_total`, `after_total`, `before_delivery_date`, `after_delivery_date`, `voided_invoice` ({`invoice_id`, `invoice_number`, `amount`} or null) |
 | `order.delivery_updated_by_admin` | order | `from_status` (null = delivered with no rider), `to_status`, `order_status_before`, `rider_id`, `changed_by` |
 
+| `order.delivered_in_erp` | order | `order_status_before`, `rider_id` — the office confirmed the delivery in the ERP (`mark_delivered_from_erp`) |
+
 `*_by` is null when the service role (e.g. an ERP backend job) made the change. Orders placed from the salesman app, rider assignment, the rider's own delivery steps and invoice creation don't write events yet.
+
+**The ERP link** (migration `20261030000000_erp_link.sql`; the ERP repo's CLAUDE.md section 6 and its migration `20261030000200_order_app_link.sql`). Off until the ERP's go-live switch (`erp.company_settings.order_app_linked`, read here with `public.erp_linked()`). While off, nothing below happens. Once on:
+- **Assigning a rider** makes the ERP delivery challan, from the ERP's default store and with the ERP's credit control. A customer over their limit or with late invoices can't be assigned until the Sales Manager or CEO approves the challan in the ERP. A product not set up in the ERP also stops it. The app no longer makes its own invoice or changes `current_balance`.
+- **The order becoming delivered** (the rider's last step, or `admin_update_delivery`) posts the ERP invoice. A refusal never stops the delivery: it goes to the ERP's "Offline problems" list.
+- **The ERP confirming a delivery** marks the order delivered here (`mark_delivered_from_erp`).
+- **Cancelling an order** cancels its challan. **Changing one that is out for delivery** remakes it.
+- **`clients.current_balance` is kept by the ERP** as the customer's ledger balance (owed less advances). `erp.order_app_credit()` adds the late amount, for the credit warning.
+- Orders the app invoiced itself before the link keep that invoice, which goes into the ERP's opening balances.
+- `profiles.role` gains **`office`**: staff who only use the ERP. They have no order-app screens and don't appear as salesmen.
 
 **Business rules as database functions.** The ERP will share this database, so rules both apps must obey live in Postgres functions both can call (admin or service role only, one transaction each): `change_order_rider(order, rider)`, `cancel_order(order, reason)`, `admin_create_order(client, salesman, items, delivery_date)`, `edit_order(order, items, delivery_date)` (also callable by the order's salesman while it is placed) and `admin_update_delivery(order, status)` (refuses "delivered" unless the order has a live invoice; the app raises it first). App code in `lib/` calls them and adds only notifications. New cross-app rules should follow the same pattern.
 
