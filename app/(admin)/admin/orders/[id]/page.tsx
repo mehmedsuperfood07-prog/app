@@ -14,6 +14,7 @@ import { ActionForm } from "@/components/action-form";
 import { SubmitButton } from "@/components/mobile/submit-button";
 import { generateInvoiceAction } from "@/lib/actions/orders";
 import { getAdminOrderDetail } from "@/lib/admin-orders";
+import { ERP_URL, getErpInvoice, isErpLinked } from "@/lib/erp";
 import { listActiveRiders } from "@/lib/staff";
 import { describeDeliveryDate, formatDateTime, formatRs, isDeliveryOverdue } from "@/lib/format";
 import { PageHeader } from "@/components/mobile/page-header";
@@ -41,7 +42,12 @@ export default async function AdminOrderDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [order, riders] = await Promise.all([getAdminOrderDetail(id), listActiveRiders()]);
+  const [order, riders, linked, erpInvoice] = await Promise.all([
+    getAdminOrderDetail(id),
+    listActiveRiders(),
+    isErpLinked(),
+    getErpInvoice(id),
+  ]);
   if (!order) notFound();
 
   const { client } = order;
@@ -50,8 +56,9 @@ export default async function AdminOrderDetailPage({
     order.deliveryStatus !== "delivered";
   // An order out for delivery normally has its invoice; it can lack one only
   // if an edit voided the old invoice and the new one failed to generate.
+  // Once the ERP is linked the invoice is the ERP's, made on delivery.
   const missingInvoice =
-    order.status === "out_for_delivery" && editable && (!order.invoice || !!order.invoice.voided);
+    !linked && order.status === "out_for_delivery" && editable && (!order.invoice || !!order.invoice.voided);
   const overLimit = client && client.creditLimit > 0 && client.balance > client.creditLimit;
   const usedPct =
     client && client.creditLimit > 0
@@ -93,6 +100,7 @@ export default async function AdminOrderDetailPage({
                 orderId={order.id}
                 orderStatus={order.status}
                 deliveryStatus={order.deliveryStatus}
+                erpLinked={linked}
               />
             </Card>
           )}
@@ -198,6 +206,7 @@ export default async function AdminOrderDetailPage({
                 orderId={order.id}
                 orderStatus={order.status}
                 deliveryStatus={order.deliveryStatus}
+                erpLinked={linked}
               />
             </Card>
           )}
@@ -262,6 +271,47 @@ export default async function AdminOrderDetailPage({
                   Generate invoice
                 </SubmitButton>
               </ActionForm>
+            </Card>
+          )}
+
+          {linked && !(order.invoice && !order.invoice.voided) && (
+            <Card className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-soft-foreground">
+                  <FileText size={18} />
+                </div>
+                <div className="min-w-0">
+                  {erpInvoice ? (
+                    <>
+                      <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">{erpInvoice.number}</p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {formatRs(erpInvoice.total)}
+                        {erpInvoice.balance > 0 ? ` · ${formatRs(erpInvoice.balance)} still owed` : " · paid"}
+                      </p>
+                    </>
+                  ) : order.status === "delivered" ? (
+                    <>
+                      <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">The ERP couldn&apos;t make the invoice</p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">Accounts sees why on the ERP&apos;s Offline problems page.</p>
+                    </>
+                  ) : order.status === "cancelled" ? (
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">Cancelled: no invoice.</p>
+                  ) : (
+                    <>
+                      <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Invoice comes from the ERP</p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">It is made when the delivery is confirmed.</p>
+                    </>
+                  )}
+                </div>
+              </div>
+              <a
+                href={`${ERP_URL}/invoices`}
+                target="_blank"
+                rel="noreferrer"
+                className="shrink-0 rounded-full bg-zinc-100 px-3 py-2 text-xs font-semibold text-zinc-700 active:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200"
+              >
+                Open in the ERP
+              </a>
             </Card>
           )}
 

@@ -45,12 +45,12 @@ No public sign-up screen. Admin creates every staff account (see Auth, below).
 
 | Layer | Choice | Notes |
 |---|---|---|
-| Frontend | Next.js (App Router), installable as a PWA | Deployed on Vercel |
+| Frontend | Next.js (App Router), installable as a PWA | Moving from Vercel to Cloudflare Workers (OpenNext), see Hosting |
 | Local/offline data | Dexie.js (IndexedDB) + a sync queue | Orders write locally first, always — sync is a background process, never something the salesman waits on |
 | Backend | Supabase — Postgres, Auth, Storage, Realtime | Row-level security enforces the role table above at the database level, not just in the UI |
 | Auth | Supabase Auth, **email + password**, accounts created by admin only | No SMS/OTP — keeps this fully free (phone OTP needs a paid SMS provider) |
 | Invoices | Server/edge function renders the invoice PDF when the admin assigns a rider, stored in Supabase Storage | |
-| Hosting | Vercel (Hobby to start) | See the cost note below |
+| Hosting | **Moving to Cloudflare (decided 2026-11-05)**, the same company account as the ERP; Vercel until the go-live day switch | `@opennextjs/cloudflare`, `open-next.config.ts`, `wrangler.jsonc`. `npm run cf -- deploy-test` builds the test copy `mehmed-order-test` on the ERP's dev database (`.env.test.local`; the live `.env.local` is set aside during the build) and `deploy-live --yes-live` the live `mehmed-order` (`scripts/cloudflare.mjs`, using the ERP repo's Cloudflare sign-in). **The build fails on Windows** (EPERM on symlinks): build on Linux (a GitHub Action, or WSL) or with Windows Developer Mode. OpenNext calls Node middleware (`proxy.ts`) experimental: test sign-in and session refresh on the copy |
 
 **Cost note:** Vercel's free Hobby plan and Supabase's free plan cover this comfortably at this scale (well under the free request/storage caps). One thing to know: Vercel's Hobby plan terms are written for "personal, non-commercial use" — a client's business app doesn't strictly fit that wording, though small internal tools run on it constantly without issue in practice. If full compliance matters, budget $20/month for Vercel Pro once the app is live for the business, or host on Netlify's free tier instead, which carries no such restriction.
 
@@ -148,6 +148,10 @@ integration_events
 - **`clients.current_balance` is kept by the ERP** as the customer's ledger balance (owed less advances). `erp.order_app_credit()` adds the late amount, for the credit warning.
 - Orders the app invoiced itself before the link keep that invoice, which goes into the ERP's opening balances.
 - `profiles.role` gains **`office`**: staff who only use the ERP. They have no order-app screens and don't appear as salesmen.
+
+**The app's side of the link** (`lib/erp.ts`, 2026-11-05, branch `erp-link`): `isErpLinked()` reads the switch. Once on, `assignRiderToOrder`, `advanceDelivery`, `adminUpdateDelivery` and `editOrder` no longer call `createInvoiceForOrder` (an ERP refusal at assignment comes back from the `orders` update with the ERP's own message); "Generate invoice" is refused; `assertNotInvoicedBeforeLink` stops changing or cancelling an order the app invoiced before the link (it is corrected in the ERP). The admin order screen shows the ERP invoice (`getErpInvoice`) and links to the ERP (`NEXT_PUBLIC_ERP_URL`); the invoices page says new invoices are in the ERP; the salesman bootstrap carries each client's `overdue`/`oldest_days_late` (`getErpCredit`) for the client list and the order screen's warning; the staff screen offers Office, whose login lands on `/office`. While off, every one of these behaves exactly as before.
+
+**Testing against the ERP's dev database:** `node scripts/dev-test.mjs` (port 3100) runs the app with `.env.test.local` passed as environment variables, which Next.js puts above `.env.local` (the live project). Never run plain `npm run dev` for link tests: that is the live database.
 
 **Business rules as database functions.** The ERP will share this database, so rules both apps must obey live in Postgres functions both can call (admin or service role only, one transaction each): `change_order_rider(order, rider)`, `cancel_order(order, reason)`, `admin_create_order(client, salesman, items, delivery_date)`, `edit_order(order, items, delivery_date)` (also callable by the order's salesman while it is placed) and `admin_update_delivery(order, status)` (refuses "delivered" unless the order has a live invoice; the app raises it first). App code in `lib/` calls them and adds only notifications. New cross-app rules should follow the same pattern.
 

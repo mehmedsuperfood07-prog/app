@@ -22,6 +22,10 @@ export type CachedClient = {
   active: boolean;
   area_id: string | null;
   area_name: string | null;
+  // From the ERP once linked (erp.order_app_credit): what is past its due date, and how
+  // late the oldest is. 0 / null while unlinked.
+  overdue?: number;
+  oldest_days_late?: number | null;
 };
 
 export type CachedProduct = {

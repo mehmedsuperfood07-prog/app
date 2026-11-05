@@ -220,6 +220,20 @@ export default function NewOrderPage() {
         </p>
       )}
 
+      {(client.overdue ?? 0) > 0 && (
+        <div
+          role="status"
+          className="mb-3 flex items-start gap-2 rounded-2xl bg-red-50 px-3.5 py-3 text-sm text-red-900 dark:bg-red-950 dark:text-red-100"
+        >
+          <TriangleAlert size={17} className="mt-0.5 shrink-0" />
+          <span>
+            {client.name} has <b>{formatRs(client.overdue ?? 0)}</b> past its due date
+            {client.oldest_days_late ? `, the oldest ${client.oldest_days_late} days late` : ""}. You can still
+            take the order, but the office can only send the goods once the Sales Manager or CEO approves.
+          </span>
+        </div>
+      )}
+
       {overBy > 0 && (
         <div
           role="status"

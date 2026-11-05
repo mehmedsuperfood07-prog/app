@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/auth";
 import { createInvoiceForOrder, getInvoiceDownloadUrl } from "@/lib/invoices";
+import { assertNotInvoicedBeforeLink, isErpLinked } from "@/lib/erp";
 import { deferPush, sendPushToUser } from "@/lib/push";
 import { dbErrorMessage } from "@/lib/errors";
 import { formatDeliveryDate, formatRs } from "@/lib/format";
@@ -362,6 +363,7 @@ export async function cancelOrder(orderId: string, reason: string) {
     throw new Error("Only an admin can cancel an order.");
   }
   if (!reason.trim()) throw new Error("Give a reason for cancelling.");
+  await assertNotInvoicedBeforeLink(orderId, "cancel");
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("cancel_order", {
@@ -477,7 +479,8 @@ export async function adminUpdateDelivery(orderId: string, status: AdvancedStatu
     throw new Error("Choose Picked up, On the way or Delivered.");
   }
 
-  if (status === "delivered") await createInvoiceForOrder(orderId);
+  // Once the ERP is linked, delivery posts the ERP's invoice instead.
+  if (status === "delivered" && !(await isErpLinked())) await createInvoiceForOrder(orderId);
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("admin_update_delivery", {

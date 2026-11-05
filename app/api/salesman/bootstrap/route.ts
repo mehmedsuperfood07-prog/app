@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getErpCredit } from "@/lib/erp";
 
 // Everything a salesman's device needs to build orders offline, in one
 // round trip (connectivity in the field is the whole reason this exists,
@@ -20,6 +21,7 @@ export async function GET() {
     { data: products },
     { data: overrides },
     { data: orders },
+    credit,
   ] = await Promise.all([
     supabase
       .from("clients")
@@ -40,6 +42,7 @@ export async function GET() {
       )
       .order("created_at", { ascending: false })
       .limit(200),
+    getErpCredit(),
   ]);
 
   type ClientRow = {
@@ -76,6 +79,8 @@ export async function GET() {
       active: c.active,
       area_id: c.area?.id ?? null,
       area_name: c.area?.name ?? null,
+      overdue: credit.get(c.id)?.overdue ?? 0,
+      oldest_days_late: credit.get(c.id)?.oldestDaysLate ?? null,
     })),
     products: products ?? [],
     priceOverrides: (overrides ?? []).map((o) => ({

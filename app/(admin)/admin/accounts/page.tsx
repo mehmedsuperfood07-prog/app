@@ -16,7 +16,7 @@ import { SubmitButton } from "@/components/mobile/submit-button";
 const detailsClasses =
   "group overflow-hidden rounded-2xl border border-zinc-200/80 bg-surface shadow-sm dark:border-zinc-800";
 
-const ROLE_TONE = { admin: "strong", salesman: "medium", rider: "soft" } as const;
+const ROLE_TONE = { admin: "strong", salesman: "medium", rider: "soft", office: "neutral" } as const;
 
 export default async function AccountsPage() {
   const [staff, me] = await Promise.all([listStaff(), getCurrentProfile()]);
@@ -60,6 +60,7 @@ export default async function AccountsPage() {
             <option value="salesman">Salesman</option>
             <option value="rider">Rider</option>
             <option value="admin">Admin</option>
+            <option value="office">Office (uses the ERP only)</option>
           </SelectField>
           <SubmitButton pendingLabel="Creating…">Create account</SubmitButton>
         </ActionForm>

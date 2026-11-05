@@ -45,10 +45,12 @@ export function AdminDeliveryActions({
   orderId,
   orderStatus,
   deliveryStatus,
+  erpLinked = false,
 }: {
   orderId: string;
   orderStatus: string;
   deliveryStatus: DeliveryStatus | null;
+  erpLinked?: boolean; // the ERP makes the challan and the invoice (lib/erp.ts)
 }) {
   if (orderStatus === "placed") {
     return (
@@ -59,7 +61,11 @@ export function AdminDeliveryActions({
         <StepButton
           orderId={orderId}
           status="delivered"
-          confirmMessage="Mark this order delivered without a rider? Its invoice is raised now and the amount is added to the client's balance."
+          confirmMessage={
+            erpLinked
+              ? "Mark this order delivered without a rider? The ERP makes its challan and posts its invoice now."
+              : "Mark this order delivered without a rider? Its invoice is raised now and the amount is added to the client's balance."
+          }
         >
           Mark delivered without a rider
         </StepButton>

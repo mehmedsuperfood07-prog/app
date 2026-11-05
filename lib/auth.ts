@@ -2,7 +2,9 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
-export type Role = "admin" | "salesman" | "rider";
+// office: staff who only use the ERP (accounts, auditor…); they have no order-app screens
+// and never appear as salesmen (20261030000000_erp_link.sql).
+export type Role = "admin" | "salesman" | "rider" | "office";
 
 export type Profile = {
   id: string;
@@ -20,6 +22,8 @@ export function roleHome(role: Role) {
       return "/salesman";
     case "rider":
       return "/rider";
+    case "office":
+      return "/office";
   }
 }
 

@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/auth";
 import { createInvoiceForOrder } from "@/lib/invoices";
+import { isErpLinked } from "@/lib/erp";
 import { deferPush, sendPushToUser, sendPushToRole } from "@/lib/push";
 import { dbErrorMessage } from "@/lib/errors";
 import { formatDeliveryDate, startOfTodayPakistan } from "@/lib/format";
@@ -285,7 +286,9 @@ export async function advanceDelivery(orderId: string): Promise<AdvancedStatus> 
     // Invoices are raised when the rider is assigned (assignRiderToOrder),
     // so for every new order this finds one and does nothing. It only does
     // work for an order assigned before that change, which has none yet.
-    await createInvoiceForOrder(orderId);
+    // Once the ERP is linked, the order becoming delivered posts the ERP's
+    // invoice instead (orders_erp_link).
+    if (!(await isErpLinked())) await createInvoiceForOrder(orderId);
   }
 
   const clientId = order.client_id;
@@ -358,7 +361,10 @@ export async function assignRiderToOrder(orderId: string, riderId: string) {
   // one. The claim above makes this the only caller for the order, so it
   // can't race another admin into a second invoice. Service role for the
   // undo: it has to remove the delivery row we just wrote, whatever RLS says.
-  try {
+  // Once the ERP is linked, the claim above already made the ERP's delivery
+  // challan (or the ERP refused it, and nothing was claimed), and the invoice
+  // is the ERP's, made on delivery.
+  if (!(await isErpLinked())) try {
     await createInvoiceForOrder(orderId);
   } catch (err) {
     const admin = createAdminClient();

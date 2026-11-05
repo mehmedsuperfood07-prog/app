@@ -5,9 +5,10 @@ import { formatDate, formatRs } from "@/lib/format";
 import { PageHeader } from "@/components/mobile/page-header";
 import { Card } from "@/components/mobile/card";
 import { StatusPill } from "@/components/mobile/status-pill";
+import { ERP_URL, isErpLinked } from "@/lib/erp";
 
 export default async function AdminInvoicesPage() {
-  const invoices = await listInvoicesForAdmin();
+  const [invoices, linked] = await Promise.all([listInvoicesForAdmin(), isErpLinked()]);
   const withUrls = await Promise.all(
     invoices.map(async (inv) => ({
       ...inv,
@@ -33,6 +34,19 @@ export default async function AdminInvoicesPage() {
             : "Generated automatically when you assign a rider to an order"
         }
       />
+
+      {linked && (
+        <Card className="mb-3">
+          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">New invoices are made in the ERP</p>
+          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+            Since the ERP was connected, each order&apos;s invoice is made there when the delivery is confirmed. The
+            invoices below are from before; what is still owed on them is in the ERP&apos;s opening balances.
+          </p>
+          <a href={`${ERP_URL}/invoices`} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs font-semibold text-accent">
+            Open the ERP&apos;s invoices
+          </a>
+        </Card>
+      )}
 
       {withUrls.length === 0 ? (
         <div className="flex flex-col items-center py-14 text-center">

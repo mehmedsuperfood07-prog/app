@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/auth";
 import { createInvoiceForOrder } from "@/lib/invoices";
+import { assertNotInvoicedBeforeLink, isErpLinked } from "@/lib/erp";
 import { dbErrorMessage } from "@/lib/errors";
 import { deferPush, sendPushToRole, sendPushToUser } from "@/lib/push";
 import { addDaysToISODate, formatDeliveryDate, formatRs, todayPakistanISO } from "@/lib/format";
@@ -356,6 +357,7 @@ export async function editOrder(
 
   const current = await getOrderForEditing(orderId);
   if (!current) throw new Error("Order not found.");
+  await assertNotInvoicedBeforeLink(orderId, "change");
   const allowed = new Set(current.products.map((p) => p.id));
   if (lineItems.some((i) => !allowed.has(i.product_id))) {
     throw new Error("One of the selected products is no longer available.");
@@ -375,7 +377,9 @@ export async function editOrder(
   const result = data as EditResult;
 
   let invoiceWarning: string | null = null;
-  if (result.voided_invoice) {
+  // Once the ERP is linked, an order out for delivery has the ERP's challan,
+  // remade by the edit (order_edits_erp_link), and no invoice of the app's.
+  if (result.voided_invoice && !(await isErpLinked())) {
     try {
       await createInvoiceForOrder(orderId);
     } catch (err) {

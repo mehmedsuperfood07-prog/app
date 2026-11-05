@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { adminUpdateDelivery, cancelOrder, createOrderAsAdmin } from "@/lib/admin-orders";
 import { getCurrentProfile } from "@/lib/auth";
 import { createInvoiceForOrder } from "@/lib/invoices";
+import { isErpLinked } from "@/lib/erp";
 import { editOrder, type OrderLineInput } from "@/lib/orders";
 import type { AdvancedStatus } from "@/lib/deliveries";
 import { ok, fail, type ActionResult } from "@/lib/actions/result";
@@ -98,6 +99,7 @@ export async function generateInvoiceAction(formData: FormData): Promise<ActionR
   try {
     const caller = await getCurrentProfile();
     if (!caller || caller.role !== "admin") throw new Error("Only an admin can generate an invoice.");
+    if (await isErpLinked()) throw new Error("Invoices are made by the ERP now, when the order is delivered.");
     await createInvoiceForOrder(orderId);
   } catch (err) {
     return fail(err, "Could not generate the invoice.");

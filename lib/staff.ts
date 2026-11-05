@@ -12,7 +12,7 @@ export type CreateStaffInput = {
   role: Role;
 };
 
-const ROLES: Role[] = ["admin", "salesman", "rider"];
+const ROLES: Role[] = ["admin", "salesman", "rider", "office"];
 const MIN_PASSWORD_LENGTH = 6;
 
 // The admin API bypasses RLS entirely, so the admin-only check has to

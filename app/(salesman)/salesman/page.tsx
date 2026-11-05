@@ -158,6 +158,11 @@ export default function SalesmanHome() {
                   {formatRs(c.current_balance)}
                 </p>
                 <p className="text-[0.6875rem] text-zinc-500 dark:text-zinc-400">balance</p>
+                {(c.overdue ?? 0) > 0 && (
+                  <p className="text-[0.6875rem] font-semibold text-red-700 dark:text-red-400">
+                    {formatRs(c.overdue ?? 0)} late
+                  </p>
+                )}
               </div>
             </div>
             {(c.area_name || c.phone) && (

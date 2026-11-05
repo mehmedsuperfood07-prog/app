@@ -1,0 +1,73 @@
+# Builds the order app on Linux and publishes it to Mehmed's Cloudflare account
+# (moving from Vercel, 2026-11-05). OpenNext can't build on Windows, so builds happen here,
+# never on a laptop.
+#
+# - Test copy (mehmed-order-test, the ERP's dev database, fake data): every push to the
+#   erp-link branch, or by hand choosing "test".
+# - Live (mehmed-order, the database staff use): by hand only, choosing "live", once the
+#   workflow is on main. It reads the "live" environment's secrets; give that environment a
+#   required reviewer in GitHub so nobody publishes it by accident.
+#
+# Each environment (Settings → Environments) holds CLOUDFLARE_API_TOKEN and the app's
+# settings: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
+# NEXT_PUBLIC_VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, NEXT_PUBLIC_ERP_URL.
+
+name: Cloudflare
+
+on:
+  push:
+    branches: [erp-link]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Which copy to publish
+        type: choice
+        options: [test, live]
+        default: test
+
+concurrency: cloudflare-${{ inputs.target || 'test' }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target || 'test' }}
+    env:
+      TARGET: ${{ inputs.target || 'test' }}
+      CLOUDFLARE_ACCOUNT_ID: 4d6d2408ef5e8f2d66b3c94e447504f7 # Mehmed's account (not a secret)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Write this copy's settings
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ secrets.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          NEXT_PUBLIC_ERP_URL: ${{ secrets.NEXT_PUBLIC_ERP_URL }}
+        run: |
+          # The test copy must never reach the live database, and the live copy must.
+          case "$TARGET:$NEXT_PUBLIC_SUPABASE_URL" in
+            test:*rwiniskoapgdazevxckc*) echo "The test copy points at the live database. Stopping."; exit 1 ;;
+            live:*rwiniskoapgdazevxckc*) ;;
+            live:*) echo "The live copy must point at the live database. Stopping."; exit 1 ;;
+          esac
+          for v in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY NEXT_PUBLIC_VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY NEXT_PUBLIC_ERP_URL; do
+            if [ -z "${!v}" ]; then echo "Secret $v is missing from the $TARGET environment."; exit 1; fi
+            echo "$v=${!v}" >> .env.production.local
+          done
+
+      - name: Build for Cloudflare (OpenNext)
+        run: npx opennextjs-cloudflare build
+
+      - name: Publish
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler deploy --name "${{ (inputs.target || 'test') == 'live' && 'mehmed-order' || 'mehmed-order-test' }}"

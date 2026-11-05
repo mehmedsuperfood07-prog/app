@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { assignRiderToOrder, advanceDelivery, changeOrderRider } from "@/lib/deliveries";
 import { ok, fail, type ActionResult } from "@/lib/actions/result";
+import { isErpLinked } from "@/lib/erp";
 
 const ADVANCE_MESSAGES = {
   picked_up: "Marked as picked up.",
@@ -23,7 +24,7 @@ export async function assignRiderAction(formData: FormData): Promise<ActionResul
   revalidatePath("/admin/orders");
   revalidatePath("/admin/invoices");
   revalidatePath("/admin");
-  return ok("Rider assigned — invoice generated.");
+  return ok((await isErpLinked()) ? "Rider assigned — delivery challan made in the ERP." : "Rider assigned — invoice generated.");
 }
 
 export async function changeRiderAction(formData: FormData): Promise<ActionResult> {
