@@ -10,6 +10,8 @@ export type CreateStaffInput = {
   full_name: string;
   phone?: string;
   role: Role;
+  area_ids?: string[];
+  move_customers?: boolean;
 };
 
 const ROLES: Role[] = ["admin", "salesman", "rider", "office"];
@@ -53,7 +55,33 @@ export async function createStaffAccount(input: CreateStaffInput) {
 
   if (error) throw new Error(error.message);
 
+  if (input.role === "salesman" && input.area_ids?.length) {
+    await setSalesmanAreas(data.user.id, input.area_ids, input.move_customers ?? false);
+  }
+
   return data.user;
+}
+
+// Which areas a salesman covers. Returns how many customers moved to them.
+export async function setSalesmanAreas(id: string, areaIds: string[], moveCustomers: boolean): Promise<number> {
+  await requireAdminCaller();
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_set_salesman_areas", {
+    p_salesman: id,
+    p_area_ids: areaIds,
+    p_move_customers: moveCustomers,
+  });
+  if (error) throw new Error(dbErrorMessage(error));
+  return (data as number) ?? 0;
+}
+
+// Two salesmen exchange their areas and those areas' customers. Returns how many moved.
+export async function swapSalesmenAreas(a: string, b: string): Promise<number> {
+  await requireAdminCaller();
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_swap_salesman_areas", { p_a: a, p_b: b });
+  if (error) throw new Error(dbErrorMessage(error));
+  return (data as number) ?? 0;
 }
 
 export async function updateStaffProfile(

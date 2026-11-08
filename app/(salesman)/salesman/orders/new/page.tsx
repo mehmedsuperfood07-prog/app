@@ -14,6 +14,7 @@ import { PageHeader } from "@/components/mobile/page-header";
 import { CardLink } from "@/components/mobile/card";
 import { Button } from "@/components/mobile/button";
 import { OrderProductLine } from "@/components/order-product-line";
+import { clampDiscount, netRate } from "@/lib/discount";
 import { Skeleton } from "@/components/mobile/skeleton";
 import { BottomActionBar } from "@/components/mobile/bottom-action-bar";
 
@@ -25,6 +26,7 @@ export default function NewOrderPage() {
 
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [prices, setPrices] = useState<Record<string, number>>({});
+  const [discounts, setDiscounts] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState("");
@@ -127,7 +129,8 @@ export default function NewOrderPage() {
   }
 
   const activeProducts = products.filter((p) => p.active).sort((a, b) => a.name.localeCompare(b.name));
-  const priceFor = (p: CachedProduct) => prices[p.id] ?? effectivePrice(p, clientId, overrides);
+  const rateFor = (p: CachedProduct) => prices[p.id] ?? effectivePrice(p, clientId, overrides);
+  const priceFor = (p: CachedProduct) => netRate(rateFor(p), discounts[p.id] ?? 0);
   const totalQty = Object.values(quantities).reduce((s, q) => s + q, 0);
   const totalRs = activeProducts.reduce(
     (sum, p) => sum + (quantities[p.id] ?? 0) * priceFor(p),
@@ -258,7 +261,9 @@ export default function NewOrderPage() {
               key={p.id}
               product={p}
               listPrice={effectivePrice(p, clientId, overrides)}
-              price={priceFor(p)}
+              price={rateFor(p)}
+              discountPct={discounts[p.id] ?? 0}
+              onDiscountChange={(pct) => setDiscounts((d) => ({ ...d, [p.id]: clampDiscount(pct) }))}
               qty={quantities[p.id] ?? 0}
               onQtyChange={(qty) => setQty(p.id, qty)}
               onPriceChange={(price) => setPrice(p.id, price)}

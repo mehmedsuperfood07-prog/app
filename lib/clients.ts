@@ -97,9 +97,26 @@ function normalizePaymentTerm<T extends { payment_term: PaymentTerm; credit_limi
   return input.payment_term === "cash" ? { ...input, credit_limit: 0 } : input;
 }
 
+// Many shops share a name (client, 2026-11-08), each its own customer. That is fine as long as
+// the area and address tell them apart.
+async function refuseIfSameShop(input: { name: string; area_id?: string | null; address?: string | null }, exceptId?: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("client_name_clash", {
+    p_name: input.name,
+    p_area: input.area_id ?? null,
+    p_address: input.address ?? null,
+    p_except: exceptId ?? null,
+  });
+  if (error) throw new Error(dbErrorMessage(error));
+  if (data) {
+    throw new Error(`There is already a ${input.name} in this area. If this is another shop, enter the full address of both so they can be told apart.`);
+  }
+}
+
 export async function createClientRecord(input: ClientInput) {
   validateClient(input);
   await requireAdminCaller();
+  await refuseIfSameShop(input);
 
   const supabase = await createClient();
   const { error } = await supabase.from("clients").insert(normalizePaymentTerm(input));
@@ -109,6 +126,7 @@ export async function createClientRecord(input: ClientInput) {
 export async function updateClientRecord(id: string, input: ClientInput) {
   validateClient(input);
   await requireAdminCaller();
+  await refuseIfSameShop(input, id);
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -166,6 +184,7 @@ export type NewClientInput = {
 
 export async function createMyClient(input: NewClientInput) {
   validateClient(input);
+  await refuseIfSameShop(input);
 
   const supabase = await createClient();
   const {

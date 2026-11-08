@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { TriangleAlert } from "lucide-react";
 import type { OrderFormInput, OrderFormResult } from "@/lib/actions/orders";
 import type { OrderProduct } from "@/lib/orders";
+import { clampDiscount, netRate, splitRate } from "@/lib/discount";
 import { formatRs, todayPakistanISO } from "@/lib/format";
 import { useToast } from "@/components/toast";
 import { DeliveryDateField } from "@/components/delivery-date-field";
@@ -51,8 +52,15 @@ export function OrderForm({
   const [quantities, setQuantities] = useState<Record<string, number>>(() =>
     Object.fromEntries((initial?.lines ?? []).map((l) => [l.productId, l.quantity])),
   );
+  // A saved order keeps only its final rate; read it back as a percentage off the list price
+  // where it is one, so the form opens showing what was given.
+  const split = (l: { productId: string; unitPrice: number }) =>
+    splitRate(products.find((p) => p.id === l.productId)?.price ?? 0, l.unitPrice);
   const [prices, setPrices] = useState<Record<string, number>>(() =>
-    Object.fromEntries((initial?.lines ?? []).map((l) => [l.productId, l.unitPrice])),
+    Object.fromEntries((initial?.lines ?? []).map((l) => [l.productId, split(l).rate])),
+  );
+  const [discounts, setDiscounts] = useState<Record<string, number>>(() =>
+    Object.fromEntries((initial?.lines ?? []).map((l) => [l.productId, split(l).pct])),
   );
   const initialDate = initial?.deliveryDate ?? "";
   const [deliveryDate, setDeliveryDate] = useState(initialDate);
@@ -65,7 +73,8 @@ export function OrderForm({
   const submittingRef = useRef(false);
   const dateFieldRef = useRef<HTMLDivElement>(null);
 
-  const priceFor = (p: OrderProduct) => prices[p.id] ?? p.price;
+  const rateFor = (p: OrderProduct) => prices[p.id] ?? p.price;
+  const priceFor = (p: OrderProduct) => netRate(rateFor(p), discounts[p.id] ?? 0);
   const totalQty = Object.values(quantities).reduce((s, q) => s + q, 0);
   const totalRs = products.reduce((sum, p) => sum + (quantities[p.id] ?? 0) * priceFor(p), 0);
   const overBy =
@@ -147,7 +156,9 @@ export function OrderForm({
               key={p.id}
               product={p}
               listPrice={p.price}
-              price={priceFor(p)}
+              price={rateFor(p)}
+              discountPct={discounts[p.id] ?? 0}
+              onDiscountChange={(pct) => setDiscounts((d) => ({ ...d, [p.id]: clampDiscount(pct) }))}
               qty={quantities[p.id] ?? 0}
               onQtyChange={(qty) =>
                 setQuantities((q) => ({ ...q, [p.id]: Math.max(0, Math.min(100000, Math.floor(qty))) }))

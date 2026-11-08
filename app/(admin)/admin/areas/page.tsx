@@ -1,5 +1,7 @@
 import { X, MapPin } from "lucide-react";
-import { listAreasWithSalesmen } from "@/lib/areas";
+import { listAreaCoverage, listAreasWithSalesmen } from "@/lib/areas";
+import { swapSalesmenAreasAction } from "@/lib/actions/staff";
+import { SwapAreasForm } from "@/components/salesman-areas";
 import { listActiveSalesmen } from "@/lib/staff";
 import {
   createAreaAction,
@@ -14,9 +16,10 @@ import { Card } from "@/components/mobile/card";
 import { SubmitButton } from "@/components/mobile/submit-button";
 
 export default async function AreasPage() {
-  const [areas, salesmen] = await Promise.all([
+  const [areas, salesmen, coverage] = await Promise.all([
     listAreasWithSalesmen(),
     listActiveSalesmen(),
+    listAreaCoverage(),
   ]);
 
   return (
@@ -36,6 +39,14 @@ export default async function AreasPage() {
           </SubmitButton>
         </ActionForm>
       </Card>
+
+      <Card className="mb-4">
+        <SwapAreasForm salesmen={salesmen} areas={coverage} action={swapSalesmenAreasAction} />
+      </Card>
+
+      <p className="mb-3 text-xs text-zinc-500">
+        Adding a salesman here doesn&apos;t move any customers. To move an area&apos;s customers too, open the salesman in Staff Accounts.
+      </p>
 
       <div className="grid items-start gap-2.5 lg:grid-cols-2">
         {areas.map((area) => (

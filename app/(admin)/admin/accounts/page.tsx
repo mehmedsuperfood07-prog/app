@@ -1,12 +1,15 @@
 import { ChevronDown, UserPlus } from "lucide-react";
 import { getCurrentProfile } from "@/lib/auth";
 import { listStaff, type StaffMember } from "@/lib/staff";
+import { listAreaCoverage, type AreaCoverage } from "@/lib/areas";
 import {
   createStaffAccountAction,
   updateStaffProfileAction,
   setStaffActiveAction,
   resetStaffPasswordAction,
+  setSalesmanAreasAction,
 } from "@/lib/actions/staff";
+import { SalesmanAreasForm } from "@/components/salesman-areas";
 import { ActionForm } from "@/components/action-form";
 import { Field, SelectField } from "@/components/form-field";
 import { PageHeader } from "@/components/mobile/page-header";
@@ -19,7 +22,7 @@ const detailsClasses =
 const ROLE_TONE = { admin: "strong", salesman: "medium", rider: "soft", office: "neutral" } as const;
 
 export default async function AccountsPage() {
-  const [staff, me] = await Promise.all([listStaff(), getCurrentProfile()]);
+  const [staff, me, areas] = await Promise.all([listStaff(), getCurrentProfile(), listAreaCoverage()]);
 
   return (
     <div>
@@ -62,20 +65,35 @@ export default async function AccountsPage() {
             <option value="admin">Admin</option>
             <option value="office">Office (uses the ERP only)</option>
           </SelectField>
+          <fieldset>
+            <legend className="mb-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-50">Areas (for a salesman)</legend>
+            <div className="grid gap-1.5 sm:grid-cols-2">
+              {areas.map((a) => (
+                <label key={a.id} className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                  <input type="checkbox" name="area_ids" value={a.id} className="h-4 w-4 accent-[var(--accent)]" />
+                  {a.name}
+                </label>
+              ))}
+            </div>
+            <label className="mt-2 flex items-start gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+              <input type="checkbox" name="move_customers" className="mt-0.5 h-4 w-4 accent-[var(--accent)]" />
+              <span>Give this salesman the customers already in these areas</span>
+            </label>
+          </fieldset>
           <SubmitButton pendingLabel="Creating…">Create account</SubmitButton>
         </ActionForm>
       </details>
 
       <div className="grid items-start gap-2.5 lg:grid-cols-2">
         {staff.map((s) => (
-          <StaffCard key={s.id} member={s} isMe={s.id === me?.id} />
+          <StaffCard key={s.id} member={s} isMe={s.id === me?.id} areas={areas} />
         ))}
       </div>
     </div>
   );
 }
 
-function StaffCard({ member: s, isMe }: { member: StaffMember; isMe: boolean }) {
+function StaffCard({ member: s, isMe, areas }: { member: StaffMember; isMe: boolean; areas: AreaCoverage[] }) {
   return (
     <details className={detailsClasses}>
       <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3.5">
@@ -113,6 +131,8 @@ function StaffCard({ member: s, isMe }: { member: StaffMember; isMe: boolean }) 
           </div>
           <SubmitButton pendingLabel="Saving…">Save details</SubmitButton>
         </ActionForm>
+
+        {s.role === "salesman" && <SalesmanAreasForm salesman={s} areas={areas} action={setSalesmanAreasAction} />}
 
         <ActionForm
           action={resetStaffPasswordAction}

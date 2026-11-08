@@ -42,6 +42,41 @@ export async function listAreasWithSalesmen(): Promise<AreaWithSalesmen[]> {
   }));
 }
 
+// Each area, who covers it and whose customers are in it: what the admin needs to see before
+// changing a salesman's areas, because changing them moves those customers.
+export type AreaCoverage = {
+  id: string;
+  name: string;
+  salesmanIds: string[];
+  customers: { salesmanId: string | null; salesmanName: string | null; count: number }[];
+};
+
+export async function listAreaCoverage(): Promise<AreaCoverage[]> {
+  const supabase = await createClient();
+  const [{ data: areas }, { data: assignments }, { data: clients }] = await Promise.all([
+    supabase.from("areas").select("id, name").order("name"),
+    supabase.from("salesman_areas").select("area_id, salesman_id"),
+    supabase.from("clients").select("area_id, assigned_salesman_id, salesman:profiles(full_name)").eq("active", true),
+  ]);
+  type ClientRow = { area_id: string | null; assigned_salesman_id: string | null; salesman: { full_name: string } | null };
+  const rows = (clients ?? []) as unknown as ClientRow[];
+  return (areas ?? []).map((area) => {
+    const counts = new Map<string, AreaCoverage["customers"][number]>();
+    for (const c of rows.filter((r) => r.area_id === area.id)) {
+      const key = c.assigned_salesman_id ?? "";
+      const row = counts.get(key) ?? { salesmanId: c.assigned_salesman_id, salesmanName: c.salesman?.full_name ?? null, count: 0 };
+      row.count += 1;
+      counts.set(key, row);
+    }
+    return {
+      id: area.id,
+      name: area.name,
+      salesmanIds: (assignments ?? []).filter((a) => a.area_id === area.id).map((a) => a.salesman_id),
+      customers: [...counts.values()],
+    };
+  });
+}
+
 // Areas a salesman personally covers — used to build their area filter.
 export async function listMyAreas(): Promise<Area[]> {
   const supabase = await createClient();
