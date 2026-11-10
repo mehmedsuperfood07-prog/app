@@ -9,6 +9,7 @@ import {
   Receipt,
   Package,
   MapPin,
+  MapPinned,
   UserCog,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
@@ -25,6 +26,7 @@ const MAIN_ITEMS = [
 const MANAGE_ITEMS = [
   { href: "/admin/products", label: "Products", icon: Package },
   { href: "/admin/areas", label: "Areas", icon: MapPin },
+  { href: "/admin/shop-locations", label: "Shop locations", icon: MapPinned },
   { href: "/admin/accounts", label: "Staff Accounts", icon: UserCog },
 ];
 

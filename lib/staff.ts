@@ -14,7 +14,7 @@ export type CreateStaffInput = {
   move_customers?: boolean;
 };
 
-const ROLES: Role[] = ["admin", "salesman", "rider", "office"];
+const ROLES: Role[] = ["admin", "salesman", "rider", "office", "assistant"];
 const MIN_PASSWORD_LENGTH = 6;
 
 // The admin API bypasses RLS entirely, so the admin-only check has to

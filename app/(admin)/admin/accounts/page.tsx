@@ -19,7 +19,7 @@ import { SubmitButton } from "@/components/mobile/submit-button";
 const detailsClasses =
   "group overflow-hidden rounded-2xl border border-zinc-200/80 bg-surface shadow-sm dark:border-zinc-800";
 
-const ROLE_TONE = { admin: "strong", salesman: "medium", rider: "soft", office: "neutral" } as const;
+const ROLE_TONE = { admin: "strong", salesman: "medium", rider: "soft", office: "neutral", assistant: "soft" } as const;
 
 export default async function AccountsPage() {
   const [staff, me, areas] = await Promise.all([listStaff(), getCurrentProfile(), listAreaCoverage()]);
@@ -64,6 +64,7 @@ export default async function AccountsPage() {
             <option value="rider">Rider</option>
             <option value="admin">Admin</option>
             <option value="office">Office (uses the ERP only)</option>
+            <option value="assistant">Business assistant (marks attendance only)</option>
           </SelectField>
           <fieldset>
             <legend className="mb-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-50">Areas (for a salesman)</legend>

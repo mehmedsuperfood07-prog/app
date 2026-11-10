@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Package, MapPin, UserCog, X, ChevronRight } from "lucide-react";
+import { Package, MapPin, MapPinned, UserCog, X, ChevronRight } from "lucide-react";
 import { ShellHeader } from "@/components/mobile/shell-header";
 import { AdminBottomNav } from "@/components/mobile/admin-bottom-nav";
 import { AdminSidebar } from "@/components/mobile/admin-sidebar";
@@ -25,6 +25,13 @@ const MORE_ITEMS = [
     label: "Areas",
     description: "Service areas and salesman coverage",
     icon: MapPin,
+    tone: "soft" as const,
+  },
+  {
+    href: "/admin/shop-locations",
+    label: "Shop locations",
+    description: "Where field staff can mark attendance",
+    icon: MapPinned,
     tone: "soft" as const,
   },
   {

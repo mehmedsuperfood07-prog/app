@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { CalendarCheck } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { MobileShell } from "@/components/mobile/mobile-shell";
 import { BottomNav } from "@/components/mobile/bottom-nav";
@@ -12,7 +14,10 @@ export default async function SalesmanLayout({
 
   return (
     <MobileShell title="Sales" profile={profile} bottomNav={<BottomNav />}>
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <Link href="/salesman/attendance" className="flex items-center gap-1.5 text-sm font-semibold text-accent">
+          <CalendarCheck size={16} /> Attendance
+        </Link>
         <SyncStatusIndicator />
       </div>
       {children}

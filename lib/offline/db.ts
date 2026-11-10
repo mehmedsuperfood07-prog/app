@@ -86,12 +86,26 @@ export type PendingOrder = {
   syncing_since?: number;
 };
 
+// Attendance marked with no internet, with its photo, until it can be sent (lib/attendance.ts).
+export type PendingCheckIn = {
+  id: string;
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  photo: Blob;
+  created_at: string;
+  status: "queued" | "failed";
+  error?: string;
+};
+
 type SalesmanDb = Dexie & {
   clients: EntityTable<CachedClient, "id">;
   products: EntityTable<CachedProduct, "id">;
   priceOverrides: EntityTable<CachedPriceOverride, "id">;
   orders: EntityTable<CachedOrder, "id">;
   pendingOrders: EntityTable<PendingOrder, "id">;
+  pendingCheckIns: EntityTable<PendingCheckIn, "id">;
+  meta: EntityTable<{ key: string; value: unknown }, "key">;
 };
 
 export const db = new Dexie("mehmed-salesman") as SalesmanDb;
@@ -102,4 +116,14 @@ db.version(1).stores({
   priceOverrides: "id",
   orders: "id",
   pendingOrders: "id",
+});
+
+db.version(2).stores({
+  clients: "id",
+  products: "id",
+  priceOverrides: "id",
+  orders: "id",
+  pendingOrders: "id",
+  pendingCheckIns: "id",
+  meta: "key",
 });

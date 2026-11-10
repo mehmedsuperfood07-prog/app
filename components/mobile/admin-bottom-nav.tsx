@@ -26,6 +26,7 @@ export function AdminBottomNav({ onMore }: { onMore: () => void }) {
     !activeHref &&
     (pathname.startsWith("/admin/products") ||
       pathname.startsWith("/admin/areas") ||
+      pathname.startsWith("/admin/shop-locations") ||
       pathname.startsWith("/admin/accounts"));
 
   return (

@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 
 // office: staff who only use the ERP (accounts, auditor…); they have no order-app screens
 // and never appear as salesmen (20261030000000_erp_link.sql).
-export type Role = "admin" | "salesman" | "rider" | "office";
+// assistant: staff placed in a shop, who only mark attendance.
+export type Role = "admin" | "salesman" | "rider" | "office" | "assistant";
 
 export type Profile = {
   id: string;
@@ -24,6 +25,8 @@ export function roleHome(role: Role) {
       return "/rider";
     case "office":
       return "/office";
+    case "assistant":
+      return "/assistant";
   }
 }
 

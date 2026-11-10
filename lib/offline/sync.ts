@@ -1,6 +1,7 @@
 "use client";
 
 import { db, type PendingOrderItem } from "@/lib/offline/db";
+import { syncCheckIns } from "@/lib/attendance";
 
 // Refreshes the local cache from the server. Best-effort: callers should
 // swallow failures (offline, or a flaky connection) and keep showing
@@ -148,7 +149,10 @@ export async function syncPendingOrders(): Promise<void> {
 // fallback (the 'online' event isn't always reliable on every platform).
 // Returns a cleanup function.
 export function setupAutoSync(): () => void {
-  const onOnline = () => void syncPendingOrders();
+  const onOnline = () => {
+    void syncPendingOrders();
+    void syncCheckIns();
+  };
   window.addEventListener("online", onOnline);
   const interval = window.setInterval(onOnline, 30_000);
 
