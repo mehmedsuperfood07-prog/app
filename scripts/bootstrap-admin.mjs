@@ -33,7 +33,10 @@ const { data, error } = await supabase.auth.admin.createUser({
   email,
   password,
   email_confirm: true,
-  user_metadata: { full_name: fullName, role: "admin" },
+  user_metadata: { full_name: fullName },
+  // Only the server can set app_metadata; the database ignores a role in user_metadata
+  // (supabase/migrations/20261114000000_security_tightening.sql).
+  app_metadata: { role: "admin" },
 });
 
 if (error) {

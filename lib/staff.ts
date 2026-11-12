@@ -49,11 +49,20 @@ export async function createStaffAccount(input: CreateStaffInput) {
     user_metadata: {
       full_name: input.full_name,
       phone: input.phone ?? null,
-      role: input.role,
     },
+    // The role goes in app_metadata, which only the server can set. The database takes a new
+    // login's role from there and ignores one in user_metadata, which anyone signing up could
+    // fill in (supabase/migrations/20261114000000_security_tightening.sql).
+    app_metadata: { role: input.role },
   });
 
   if (error) throw new Error(error.message);
+  // Belt and braces: the profile gets the chosen role even if the database is older than
+  // that migration, or a later change to the sign-up trigger misses it.
+  {
+    const { error: roleError } = await admin.from("profiles").update({ role: input.role }).eq("id", data.user.id);
+    if (roleError) throw new Error(roleError.message);
+  }
 
   if (input.role === "salesman" && input.area_ids?.length) {
     await setSalesmanAreas(data.user.id, input.area_ids, input.move_customers ?? false);
