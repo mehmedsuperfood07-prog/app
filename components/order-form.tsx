@@ -73,7 +73,8 @@ export function OrderForm({
   const submittingRef = useRef(false);
   const dateFieldRef = useRef<HTMLDivElement>(null);
 
-  const rateFor = (p: OrderProduct) => prices[p.id] ?? p.price;
+  // Never above the TP rate (it is locked; the database refuses more too).
+  const rateFor = (p: OrderProduct) => Math.min(prices[p.id] ?? p.price, p.price);
   const priceFor = (p: OrderProduct) => netRate(rateFor(p), discounts[p.id] ?? 0);
   const totalQty = Object.values(quantities).reduce((s, q) => s + q, 0);
   const totalRs = products.reduce((sum, p) => sum + (quantities[p.id] ?? 0) * priceFor(p), 0);

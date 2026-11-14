@@ -100,8 +100,10 @@ export function parseExpectedDeliveryDate(value: string | null | undefined): str
 
 // unit_price comes from the salesman now, not the catalog — on-the-spot
 // discounts are a normal part of how this business sells, so whatever
-// the salesman enters at order time (typically less than the catalog/
-// override price, but never forced to be) is what actually gets charged.
+// the salesman enters at order time is what actually gets charged, as long
+// as it isn't above the TP rate (the catalog/override price): the TP rate is
+// locked since 2026-11-14, and the database refuses a higher rate
+// (order_items_tp_rate_lock; an offline order is brought down to it).
 // What's still never trusted from the client is which PRODUCT is being
 // sold: every product_id below is checked against the real, active
 // catalog for this client, so a tampered/unknown id can't slip through

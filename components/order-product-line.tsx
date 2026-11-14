@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Minus, Plus } from "lucide-react";
 import { netRate } from "@/lib/discount";
 import { formatRs } from "@/lib/format";
@@ -6,9 +7,13 @@ import { ProductIcon } from "@/components/mobile/product-icon";
 const QUICK_DISCOUNTS = [1, 2, 3, 5];
 
 // One product on an order form: quantity stepper, and once a quantity is set,
-// the rate (editable for now, until rates are locked), a percentage discount
-// and the line total. Shared by the salesman's order screen and the admin's,
-// so both behave the same.
+// the rate, a percentage discount and the line total. Shared by the salesman's
+// order screen and the admin's, so both behave the same.
+//
+// The TP rate is locked (owner, 2026-11-14): it changes only in Products, or as
+// the client's special price. Here the rate can only come down from it: a lower
+// rate typed in, or a percentage off the TP rate. Never above. The database
+// refuses a rate above the TP rate too (order_items_tp_rate_lock).
 export function OrderProductLine({
   product,
   listPrice,
@@ -21,7 +26,7 @@ export function OrderProductLine({
 }: {
   product: { name: string; variant: string | null; unit: string; pack_size: string };
   listPrice: number;
-  price: number; // the rate before any discount
+  price: number; // the rate before any percentage: the TP rate, or a lower one typed in
   discountPct: number;
   qty: number;
   onQtyChange: (qty: number) => void;
@@ -29,8 +34,23 @@ export function OrderProductLine({
   onDiscountChange: (pct: number) => void;
 }) {
   const p = product;
-  const discounted = price !== listPrice;
-  const net = netRate(price, discountPct);
+  const net = netRate(Math.min(price, listPrice), discountPct);
+  const discounted = net < listPrice;
+  const [capped, setCapped] = useState(false);
+
+  // A rate typed in replaces any percentage, and stops at the TP rate.
+  function typeRate(value: number) {
+    const v = Math.max(0, value);
+    setCapped(v > listPrice);
+    onDiscountChange(0);
+    onPriceChange(Math.min(v, listPrice));
+  }
+  // A percentage is always off the TP rate.
+  function choosePct(pct: number) {
+    setCapped(false);
+    onPriceChange(listPrice);
+    onDiscountChange(pct);
+  }
 
   return (
     <div
@@ -46,7 +66,7 @@ export function OrderProductLine({
             {p.variant ? ` — ${p.variant}` : ""}
           </div>
           <div className="text-zinc-500 dark:text-zinc-400">
-            {p.pack_size} {p.unit} · list {formatRs(listPrice)}
+            {p.pack_size} {p.unit} · TP {formatRs(listPrice)}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
@@ -93,10 +113,12 @@ export function OrderProductLine({
                 type="number"
                 inputMode="decimal"
                 min="0"
+                max={listPrice}
                 step="0.01"
-                value={price}
+                value={net}
                 onFocus={(e) => e.target.select()}
-                onChange={(e) => onPriceChange(Number(e.target.value) || 0)}
+                onChange={(e) => typeRate(Number(e.target.value) || 0)}
+                onBlur={() => setCapped(false)}
                 aria-label={`Rate for ${p.name}`}
                 className={`w-24 rounded-lg border bg-surface py-1.5 pl-7 pr-2 text-sm font-semibold ${
                   discounted
@@ -105,8 +127,12 @@ export function OrderProductLine({
                 }`}
               />
             </span>
-            {discounted && (
-              <span className="text-[0.6875rem] font-semibold text-accent">Discounted</span>
+            {capped ? (
+              <span className="text-[0.6875rem] font-semibold text-amber-600 dark:text-amber-400">
+                Can&apos;t be above TP
+              </span>
+            ) : (
+              discounted && <span className="text-[0.6875rem] font-semibold text-accent">Discounted</span>
             )}
           </label>
           <span className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
@@ -126,7 +152,7 @@ export function OrderProductLine({
                 value={discountPct || ""}
                 placeholder="0"
                 onFocus={(e) => e.target.select()}
-                onChange={(e) => onDiscountChange(Number(e.target.value) || 0)}
+                onChange={(e) => choosePct(Number(e.target.value) || 0)}
                 aria-label={`Discount percent for ${p.name}`}
                 className={`w-16 rounded-lg border bg-surface py-1.5 pl-2 pr-5 text-sm font-semibold ${
                   discountPct > 0 ? "border-accent text-accent" : "border-zinc-300 text-zinc-900 dark:border-zinc-700 dark:text-zinc-50"
@@ -139,7 +165,7 @@ export function OrderProductLine({
             <button
               key={d}
               type="button"
-              onClick={() => onDiscountChange(discountPct === d ? 0 : d)}
+              onClick={() => choosePct(discountPct === d ? 0 : d)}
               aria-pressed={discountPct === d}
               className={`rounded-full px-2.5 py-1 font-semibold transition active:scale-95 ${
                 discountPct === d ? "bg-accent text-accent-foreground" : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"

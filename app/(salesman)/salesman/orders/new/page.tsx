@@ -129,7 +129,11 @@ export default function NewOrderPage() {
   }
 
   const activeProducts = products.filter((p) => p.active).sort((a, b) => a.name.localeCompare(b.name));
-  const rateFor = (p: CachedProduct) => prices[p.id] ?? effectivePrice(p, clientId, overrides);
+  // Never above the TP rate (it is locked; the database refuses more too).
+  const rateFor = (p: CachedProduct) => {
+    const tp = effectivePrice(p, clientId, overrides);
+    return Math.min(prices[p.id] ?? tp, tp);
+  };
   const priceFor = (p: CachedProduct) => netRate(rateFor(p), discounts[p.id] ?? 0);
   const totalQty = Object.values(quantities).reduce((s, q) => s + q, 0);
   const totalRs = activeProducts.reduce(
