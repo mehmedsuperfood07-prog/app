@@ -1,15 +1,16 @@
 import { ChevronDown, Plus } from "lucide-react";
-import { listProducts } from "@/lib/products";
-import { PRODUCT_UNITS } from "@/lib/constants";
+import { listPackSizes, listProducts, type PackSize } from "@/lib/products";
 import { formatRs } from "@/lib/format";
 import {
   createProductAction,
   updateProductAction,
   toggleProductActiveAction,
+  setPackSizeActiveAction,
+  removePackSizeAction,
 } from "@/lib/actions/products";
 import { ActionForm } from "@/components/action-form";
-import { PackSizeField } from "@/components/pack-size-field";
-import { Field, SelectField } from "@/components/form-field";
+import { UnitAndPackSize } from "@/components/pack-size-field";
+import { Field } from "@/components/form-field";
 import { PageHeader } from "@/components/mobile/page-header";
 import { ProductIcon } from "@/components/mobile/product-icon";
 import { StatusPill } from "@/components/mobile/status-pill";
@@ -19,7 +20,7 @@ const detailsClasses =
   "group overflow-hidden rounded-2xl border border-zinc-200/80 bg-surface shadow-sm dark:border-zinc-800";
 
 export default async function ProductsPage() {
-  const products = await listProducts();
+  const [products, sizes] = await Promise.all([listProducts(), listPackSizes()]);
 
   return (
     <div>
@@ -40,10 +41,12 @@ export default async function ProductsPage() {
           resetOnSuccess
           className="space-y-3 border-t border-zinc-100 p-4 dark:border-zinc-800"
         >
-          <ProductFields />
+          <ProductFields sizes={sizes} />
           <SubmitButton pendingLabel="Adding…">Add product</SubmitButton>
         </ActionForm>
       </details>
+
+      <PackSizesCard sizes={sizes} />
 
       <div className="grid items-start gap-2.5 lg:grid-cols-2">
         {products.map((p) => (
@@ -74,7 +77,7 @@ export default async function ProductsPage() {
             <div className="border-t border-zinc-100 px-4 py-4 dark:border-zinc-800">
               <ActionForm action={updateProductAction} className="space-y-3">
                 <input type="hidden" name="id" value={p.id} />
-                <ProductFields product={p} />
+                <ProductFields product={p} sizes={sizes} />
                 <SubmitButton pendingLabel="Saving…">Save changes</SubmitButton>
               </ActionForm>
               <ActionForm
@@ -102,7 +105,9 @@ export default async function ProductsPage() {
 
 function ProductFields({
   product,
+  sizes,
 }: {
+  sizes: PackSize[];
   product?: {
     name: string;
     variant: string | null;
@@ -117,14 +122,7 @@ function ProductFields({
       <Field label="Name" name="name" defaultValue={product?.name} required />
       <Field label="Variant" name="variant" defaultValue={product?.variant ?? ""} />
       <div className="grid grid-cols-2 gap-3">
-        <SelectField label="Unit" name="unit" defaultValue={product?.unit ?? "kg"}>
-          {PRODUCT_UNITS.map((u) => (
-            <option key={u} value={u}>
-              {u}
-            </option>
-          ))}
-        </SelectField>
-        <PackSizeField defaultValue={product?.pack_size} />
+        <UnitAndPackSize unit={product?.unit} packSize={product?.pack_size} sizes={sizes} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Field
@@ -138,5 +136,53 @@ function ProductFields({
         <Field label="Category" name="category" defaultValue={product?.category ?? ""} />
       </div>
     </div>
+  );
+}
+
+// The office's own list of pack sizes. A size added by mistake is removed; one a product uses
+// can only be hidden from the product form.
+function PackSizesCard({ sizes }: { sizes: PackSize[] }) {
+  const units = [...new Set(sizes.map((s) => s.unit))];
+  return (
+    <details className={`${detailsClasses} mb-4`}>
+      <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3.5 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+        <span>Pack sizes</span>
+        <ChevronDown size={16} className="text-zinc-400 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="space-y-4 border-t border-zinc-100 p-4 dark:border-zinc-800">
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          The sizes the product form offers. To add one, open Add product, choose the unit, then &ldquo;+ Add a new size&rdquo;.
+        </p>
+        {units.map((unit) => (
+          <div key={unit}>
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-400">{unit}</div>
+            <ul className="space-y-1.5">
+              {sizes
+                .filter((s) => s.unit === unit)
+                .map((s) => (
+                  <li key={s.id} className="flex items-center gap-2 text-sm">
+                    <span className={`flex-1 ${s.active ? "" : "text-zinc-400 line-through"}`}>
+                      {s.size} {unit}
+                    </span>
+                    <ActionForm action={setPackSizeActiveAction}>
+                      <input type="hidden" name="id" value={s.id} />
+                      <input type="hidden" name="active" value={(!s.active).toString()} />
+                      <SubmitButton variant="compactOutline" pendingLabel="…">
+                        {s.active ? "Hide" : "Show"}
+                      </SubmitButton>
+                    </ActionForm>
+                    <ActionForm action={removePackSizeAction} confirmMessage={`Remove ${s.size} ${unit} from the list?`}>
+                      <input type="hidden" name="id" value={s.id} />
+                      <SubmitButton variant="compactOutline" pendingLabel="…">
+                        Remove
+                      </SubmitButton>
+                    </ActionForm>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </details>
   );
 }

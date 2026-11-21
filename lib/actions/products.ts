@@ -5,7 +5,12 @@ import {
   createProduct,
   updateProduct,
   setProductActive,
+  addPackSize,
+  setPackSizeActive,
+  removePackSize,
+  type PackSize,
   type ProductInput,
+  type ProductUnit,
 } from "@/lib/products";
 import { ok, fail, type ActionResult } from "@/lib/actions/result";
 
@@ -56,4 +61,42 @@ export async function toggleProductActiveAction(formData: FormData): Promise<Act
 
   revalidatePath("/admin/products");
   return ok(active ? "Product activated." : "Product deactivated.");
+}
+
+// Called straight from the product form's "Add a new size" (not a form submit), so it returns
+// the size it saved for the form to choose.
+export async function addPackSizeAction(
+  unit: string,
+  size: string,
+): Promise<{ ok: true; size: PackSize } | { ok: false; error: string }> {
+  try {
+    const saved = await addPackSize(unit as ProductUnit, size);
+    revalidatePath("/admin/products");
+    return { ok: true, size: saved };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not add the size." };
+  }
+}
+
+export async function setPackSizeActiveAction(formData: FormData): Promise<ActionResult> {
+  const id = String(formData.get("id") ?? "");
+  const active = formData.get("active") === "true";
+  try {
+    await setPackSizeActive(id, active);
+  } catch (err) {
+    return fail(err, "Could not change the size.");
+  }
+  revalidatePath("/admin/products");
+  return ok(active ? "Size shown on the product form again." : "Size hidden from the product form.");
+}
+
+export async function removePackSizeAction(formData: FormData): Promise<ActionResult> {
+  const id = String(formData.get("id") ?? "");
+  try {
+    await removePackSize(id);
+  } catch (err) {
+    return fail(err, "Could not remove the size.");
+  }
+  revalidatePath("/admin/products");
+  return ok("Size removed.");
 }

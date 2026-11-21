@@ -2,6 +2,7 @@
 
 import { db, type PendingOrderItem } from "@/lib/offline/db";
 import { syncCheckIns } from "@/lib/attendance";
+import { syncProspectVisits } from "@/lib/prospects";
 
 // Refreshes the local cache from the server. Best-effort: callers should
 // swallow failures (offline, or a flaky connection) and keep showing
@@ -152,6 +153,7 @@ export function setupAutoSync(): () => void {
   const onOnline = () => {
     void syncPendingOrders();
     void syncCheckIns();
+    void syncProspectVisits();
   };
   window.addEventListener("online", onOnline);
   const interval = window.setInterval(onOnline, 30_000);

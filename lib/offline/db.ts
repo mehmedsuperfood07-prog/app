@@ -98,6 +98,29 @@ export type PendingCheckIn = {
   error?: string;
 };
 
+// A prospect visit saved on the phone, waiting to be sent (erp.save_prospect_visit). Both ids
+// are made here, so sending it twice stores it once.
+export type PendingProspectVisit = {
+  id: string;
+  user_id: string; // sent only while this login is signed in
+  prospect_id: string;
+  store: { name?: string; area_id?: string | null; address?: string; store_type?: string };
+  visit: {
+    person_name: string;
+    person_role: string | null;
+    phone: string;
+    result: string;
+    next_visit: string | null;
+    remarks: string;
+    latitude?: number;
+    longitude?: number;
+    accuracy?: number;
+  };
+  created_at: string;
+  status: "queued" | "failed";
+  error?: string;
+};
+
 type SalesmanDb = Dexie & {
   clients: EntityTable<CachedClient, "id">;
   products: EntityTable<CachedProduct, "id">;
@@ -105,6 +128,7 @@ type SalesmanDb = Dexie & {
   orders: EntityTable<CachedOrder, "id">;
   pendingOrders: EntityTable<PendingOrder, "id">;
   pendingCheckIns: EntityTable<PendingCheckIn, "id">;
+  pendingProspectVisits: EntityTable<PendingProspectVisit, "id">;
   meta: EntityTable<{ key: string; value: unknown }, "key">;
 };
 
@@ -125,5 +149,16 @@ db.version(2).stores({
   orders: "id",
   pendingOrders: "id",
   pendingCheckIns: "id",
+  meta: "key",
+});
+
+db.version(3).stores({
+  clients: "id",
+  products: "id",
+  priceOverrides: "id",
+  orders: "id",
+  pendingOrders: "id",
+  pendingCheckIns: "id",
+  pendingProspectVisits: "id",
   meta: "key",
 });
