@@ -32,6 +32,7 @@ export default async function ClientsPage() {
     text: [
       c.name,
       c.area?.name,
+      c.address,
       c.salesman?.full_name,
       CLIENT_SUBTYPE_LABELS[c.client_subtype],
       c.phone,
@@ -71,7 +72,7 @@ export default async function ClientsPage() {
 
       <FilterableList
         items={items}
-        placeholder="Search clients…"
+        placeholder="Search name, area, address, phone or salesman"
         emptyMessage="No clients match your search."
         className="grid items-start gap-2.5 lg:grid-cols-2"
       />

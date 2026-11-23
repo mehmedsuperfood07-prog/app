@@ -8,6 +8,7 @@ import { Search, Plus, MapPin, Phone, WifiOff, Users } from "lucide-react";
 import { db, type CachedClient } from "@/lib/offline/db";
 import { pullLatestData } from "@/lib/offline/sync";
 import { CLIENT_SUBTYPE_LABELS } from "@/lib/constants";
+import { matchesWords } from "@/lib/search";
 import { formatRs } from "@/lib/format";
 import { InstallAppPrompt } from "@/components/install-app-prompt";
 import { useToast } from "@/components/toast";
@@ -60,7 +61,9 @@ export default function SalesmanHome() {
   const filtered = clients
     .filter((c) => c.active)
     .filter((c) => !areaId || c.area_id === areaId)
-    .filter((c) => !search || c.name.toLowerCase().includes(search.toLowerCase()))
+    .filter((c) =>
+      matchesWords(search, [c.name, c.area_name, c.address, c.phone, CLIENT_SUBTYPE_LABELS[c.client_subtype]].filter(Boolean).join(" ")),
+    )
     .sort((a, b) => a.name.localeCompare(b.name));
 
   // Right after signing in on a fresh device the local cache is empty
@@ -96,7 +99,7 @@ export default function SalesmanHome() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search clients…"
+            placeholder="Search name, area, address or phone"
             aria-label="Search clients"
             className="w-full rounded-xl border border-zinc-200 bg-surface py-2.5 pl-10 pr-3 text-sm shadow-sm dark:border-zinc-800"
           />
