@@ -12,6 +12,9 @@ import { PageHeader } from "@/components/mobile/page-header";
 import { DeliveryDateLine } from "@/components/mobile/delivery-date-line";
 import { DeliveryStatusPill, OrderStatusPill } from "@/components/mobile/status-pill";
 import { AssignRiderForm } from "@/components/assign-rider-form";
+import { FilterableList } from "@/components/filterable-list";
+import { ORDER_STATUS_LABEL } from "@/components/mobile/status-pill";
+import { formatDeliveryDate } from "@/lib/format";
 
 const FILTER_LABELS: Record<OrderFilter, string> = {
   all: "All",
@@ -35,7 +38,7 @@ export default async function AdminOrdersPage({
     : "all";
 
   const [orders, counts, riders] = await Promise.all([
-    listAdminOrders(filter),
+    listAdminOrders(filter, 500),
     getOrderCounts(),
     listActiveRiders(),
   ]);
@@ -94,9 +97,25 @@ export default async function AdminOrdersPage({
           </p>
         </div>
       ) : (
-        <div className="grid items-start gap-2.5 lg:grid-cols-2">
-          {orders.map((o) => (
-            <div key={o.id} className={cardBase}>
+        <FilterableList
+          placeholder="Search store, salesman, rider, amount or date"
+          emptyMessage="No orders match your search."
+          className="grid items-start gap-2.5 lg:grid-cols-2"
+          firstOnly={60}
+          items={orders.map((o) => ({
+            key: o.id,
+            text: [
+              o.clientName,
+              o.salesmanName,
+              o.riderName,
+              ORDER_STATUS_LABEL[o.status] ?? o.status,
+              formatDateTime(o.createdAt),
+              o.expectedDeliveryDate ? formatDeliveryDate(o.expectedDeliveryDate) : "",
+              String(o.total),
+              formatRs(o.total),
+            ].join(" "),
+            node: (
+            <div className={cardBase}>
               <Link
                 href={`/admin/orders/${o.id}`}
                 className="block p-4 transition active:bg-zinc-50 dark:active:bg-zinc-900"
@@ -143,8 +162,9 @@ export default async function AdminOrdersPage({
                 />
               )}
             </div>
-          ))}
-        </div>
+            ),
+          }))}
+        />
       )}
     </div>
   );

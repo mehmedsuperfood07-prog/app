@@ -1,19 +1,21 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
-import { AlertCircle, ReceiptText, RotateCw } from "lucide-react";
+import { AlertCircle, ReceiptText, RotateCw, Search } from "lucide-react";
+import { matchesWords } from "@/lib/search";
 import { db } from "@/lib/offline/db";
 import { pullLatestData, syncPendingOrders } from "@/lib/offline/sync";
-import { formatDateTime, formatRs } from "@/lib/format";
+import { formatDateTime, formatDeliveryDate, formatRs } from "@/lib/format";
 import { PageHeader } from "@/components/mobile/page-header";
 import { Card, CardLink } from "@/components/mobile/card";
 import { DeliveryDateLine } from "@/components/mobile/delivery-date-line";
-import { OrderStatusPill, StatusPill } from "@/components/mobile/status-pill";
+import { ORDER_STATUS_LABEL, OrderStatusPill, StatusPill } from "@/components/mobile/status-pill";
 import { Skeleton } from "@/components/mobile/skeleton";
 
 export default function OrdersPage() {
+  const [search, setSearch] = useState("");
   useEffect(() => {
     pullLatestData().catch(() => {});
   }, []);
@@ -48,6 +50,11 @@ export default function OrdersPage() {
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const loading = cachedOrders === undefined || cachedPending === undefined;
+  const words = (o: { clientName: string; createdAt: string; total: number; deliveryDate: string | null }, status: string, extra = "") =>
+    [o.clientName, status, formatDateTime(o.createdAt), o.deliveryDate ? formatDeliveryDate(o.deliveryDate) : "", String(o.total), formatRs(o.total), extra].join(" ");
+  const shownPending = pendingRows.filter((o) => matchesWords(search, words(o, "pending sync", o.items.map((i) => i.product_name).join(" "))));
+  const shownSynced = syncedRows.filter((o) => matchesWords(search, words(o, ORDER_STATUS_LABEL[o.status] ?? o.status)));
+  const searching = search.trim() !== "";
 
   return (
     <div>
@@ -60,8 +67,26 @@ export default function OrdersPage() {
         }
       />
 
+      {pendingRows.length + syncedRows.length > 0 && (
+        <div className="relative mb-3">
+          <Search size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search store, date, amount or status"
+            aria-label="Search orders"
+            className="w-full rounded-xl border border-zinc-200 bg-surface py-2.5 pl-10 pr-3 text-sm shadow-sm dark:border-zinc-800"
+          />
+        </div>
+      )}
+
       <div className="space-y-2.5">
         {loading && [0, 1, 2].map((i) => <Skeleton key={i} className="h-19 rounded-2xl" />)}
+
+        {searching && shownPending.length + shownSynced.length === 0 && (
+          <p className="py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">No orders match your search.</p>
+        )}
 
         {!loading && pendingRows.length === 0 && syncedRows.length === 0 && (
           <div className="flex flex-col items-center py-12 text-center">
@@ -81,7 +106,7 @@ export default function OrdersPage() {
           </div>
         )}
 
-        {pendingRows.map((o) => (
+        {shownPending.map((o) => (
           <Card
             key={o.id}
             className={o.status === "failed" ? "border-zinc-400 dark:border-zinc-600" : "border-accent-soft"}
@@ -127,7 +152,7 @@ export default function OrdersPage() {
           </Card>
         ))}
 
-        {syncedRows.map((o) => (
+        {shownSynced.map((o) => (
           <CardLink key={o.id} href={`/salesman/orders/${o.id}`}>
             <div className="flex items-start justify-between gap-2">
               <span className="font-semibold text-zinc-900 dark:text-zinc-50">

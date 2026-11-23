@@ -7,6 +7,7 @@ import { DeliveryDateLine } from "@/components/mobile/delivery-date-line";
 import { DeliveryStatusPill } from "@/components/mobile/status-pill";
 import { InstallAppPrompt } from "@/components/install-app-prompt";
 import { PushNotificationSetup } from "@/components/push-notification-setup";
+import { FilterableList } from "@/components/filterable-list";
 
 export default async function RiderHome() {
   const [deliveries, completed] = await Promise.all([
@@ -42,9 +43,15 @@ export default async function RiderHome() {
           </p>
         </div>
       ) : (
-        <div className="space-y-2.5">
-          {deliveries.map((d) => (
-            <CardLink key={d.id} href={`/rider/${d.id}`}>
+        <FilterableList
+          placeholder="Search store or address"
+          emptyMessage="No deliveries match your search."
+          className="space-y-2.5"
+          items={deliveries.map((d) => ({
+            key: d.id,
+            text: [d.client?.name, d.client?.address].join(" "),
+            node: (
+            <CardLink href={`/rider/${d.id}`}>
               <div className="flex items-start justify-between gap-3">
                 <span className="font-semibold text-zinc-900 dark:text-zinc-50">
                   {d.client?.name ?? "Unknown client"}
@@ -64,8 +71,9 @@ export default async function RiderHome() {
                 <ChevronRight size={16} className="shrink-0 text-zinc-400" />
               </div>
             </CardLink>
-          ))}
-        </div>
+            ),
+          }))}
+        />
       )}
 
       {completed.length > 0 && (

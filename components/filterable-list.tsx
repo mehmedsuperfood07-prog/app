@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Search, SearchX } from "lucide-react";
+import { matchesWords } from "@/lib/search";
 
 // Instant client-side search over a server-rendered list: each item's
 // card is rendered on the server (so it can contain Server Action forms)
@@ -11,15 +12,18 @@ export function FilterableList({
   placeholder,
   emptyMessage,
   className = "",
+  firstOnly,
 }: {
   items: { key: string; text: string; node: React.ReactNode }[];
   placeholder: string;
   emptyMessage: string;
   className?: string;
+  firstOnly?: number; // show only the newest N until something is typed
 }) {
   const [query, setQuery] = useState("");
-  const q = query.trim().toLowerCase();
-  const visible = q ? items.filter((i) => i.text.toLowerCase().includes(q)) : items;
+  const q = query.trim();
+  const matched = q ? items.filter((i) => matchesWords(q, i.text)) : items;
+  const visible = !q && firstOnly ? matched.slice(0, firstOnly) : matched;
 
   return (
     <div>
@@ -45,11 +49,19 @@ export function FilterableList({
           <p className="text-sm text-zinc-500 dark:text-zinc-400">{emptyMessage}</p>
         </div>
       ) : (
-        <div className={className}>
-          {visible.map((i) => (
-            <div key={i.key}>{i.node}</div>
-          ))}
-        </div>
+        <>
+          <div className={className}>
+            {visible.map((i) => (
+              <div key={i.key}>{i.node}</div>
+            ))}
+          </div>
+          {visible.length < matched.length && (
+            <p className="mt-3 text-center text-xs text-zinc-500 dark:text-zinc-400">
+              Showing the newest {visible.length}. Search to find older ones.
+            </p>
+          )}
+          {q && <p className="mt-3 text-center text-xs text-zinc-500 dark:text-zinc-400">{matched.length} found</p>}
+        </>
       )}
     </div>
   );
